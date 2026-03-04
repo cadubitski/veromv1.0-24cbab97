@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Building2, Eye, EyeOff, Loader2, CheckCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Building2, Eye, EyeOff, Loader2, CheckCircle, CreditCard, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,9 +9,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatCNPJ, validateCNPJ } from "@/lib/cnpj";
 import { supabase } from "@/integrations/supabase/client";
 
+const PRICE_ID = "price_1T6XRS8rgGCdKgUCkAbD6Bav";
+const REGISTER_PENDING_KEY = "verom_register_pending";
+
 export default function Register() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
   const [form, setForm] = useState({
     cnpj: "",
     companyName: "",
@@ -24,6 +29,21 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [cnpjError, setCnpjError] = useState("");
+
+  // Step: "form" | "completing" | "done"
+  const [step, setStep] = useState<"form" | "completing" | "done">("form");
+
+  // On mount, check if returning from Stripe checkout
+  useEffect(() => {
+    const sessionId = searchParams.get("session_id");
+    const pending = localStorage.getItem(REGISTER_PENDING_KEY);
+
+    if (sessionId && pending) {
+      setStep("completing");
+      const pendingData = JSON.parse(pending);
+      completeRegistration(pendingData);
+    }
+  }, []);
 
   const handleCnpjChange = (value: string) => {
     const formatted = formatCNPJ(value);
@@ -56,34 +76,101 @@ export default function Register() {
 
     setLoading(true);
     try {
-      const { data, error: fnError } = await supabase.functions.invoke("register", {
-        body: {
+      // Save form data to localStorage before redirecting to Stripe
+      localStorage.setItem(
+        REGISTER_PENDING_KEY,
+        JSON.stringify({
           cnpj: cleanCnpj,
           companyName: form.companyName,
           email: form.email,
           password: form.password,
           fullName: form.fullName,
+        })
+      );
+
+      const origin = window.location.origin;
+      const successUrl = `${origin}/register?session_id={CHECKOUT_SESSION_ID}`;
+      const cancelUrl = `${origin}/register?canceled=true`;
+
+      const { data, error: fnError } = await supabase.functions.invoke("create-checkout", {
+        body: {
+          email: form.email,
+          price_id: PRICE_ID,
+          success_url: successUrl,
+          cancel_url: cancelUrl,
         },
       });
 
       if (fnError || data?.error) {
-        setError(data?.error || fnError?.message || "Erro ao criar conta.");
+        localStorage.removeItem(REGISTER_PENDING_KEY);
+        setError(data?.error || fnError?.message || "Erro ao iniciar checkout.");
         setLoading(false);
         return;
       }
 
-      const { error: loginError } = await signIn(form.email, form.password);
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        localStorage.removeItem(REGISTER_PENDING_KEY);
+        setError("URL de checkout não retornada. Tente novamente.");
+        setLoading(false);
+      }
+    } catch (err: any) {
+      localStorage.removeItem(REGISTER_PENDING_KEY);
+      setError(err.message || "Erro inesperado.");
+      setLoading(false);
+    }
+  };
+
+  const completeRegistration = async (pendingData: {
+    cnpj: string;
+    companyName: string;
+    email: string;
+    password: string;
+    fullName: string;
+  }) => {
+    setError("");
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke("register", {
+        body: pendingData,
+      });
+
+      if (fnError || data?.error) {
+        setError(data?.error || fnError?.message || "Erro ao criar conta.");
+        setStep("form");
+        return;
+      }
+
+      localStorage.removeItem(REGISTER_PENDING_KEY);
+      setStep("done");
+
+      // Auto login
+      const { error: loginError } = await signIn(pendingData.email, pendingData.password);
       if (!loginError) {
         navigate("/dashboard");
       } else {
         navigate("/login");
       }
     } catch (err: any) {
-      setError(err.message || "Erro inesperado.");
-    } finally {
-      setLoading(false);
+      setError(err.message || "Erro inesperado ao finalizar cadastro.");
+      setStep("form");
     }
   };
+
+  // Show canceled message
+  const canceled = searchParams.get("canceled");
+
+  if (step === "completing") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+          <h2 className="text-xl font-semibold text-foreground">Finalizando seu cadastro...</h2>
+          <p className="text-muted-foreground">Pagamento confirmado! Criando sua conta no Verom.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
@@ -96,6 +183,30 @@ export default function Register() {
           <h1 className="text-2xl font-bold text-foreground">Cadastrar sua empresa</h1>
           <p className="mt-1 text-muted-foreground">O primeiro usuário será o administrador</p>
         </div>
+
+        {/* Steps indicator */}
+        <div className="flex items-center justify-center gap-3 mb-6">
+          <div className="flex items-center gap-2 text-sm font-medium text-primary">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">1</div>
+            Seus dados
+          </div>
+          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full border border-muted-foreground/30 text-xs font-bold">2</div>
+            Pagamento
+          </div>
+          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full border border-muted-foreground/30 text-xs font-bold">3</div>
+            Acesso
+          </div>
+        </div>
+
+        {canceled && (
+          <div className="mb-4 rounded-lg bg-warning/10 border border-warning/20 p-3 text-sm text-warning">
+            ⚠️ Pagamento cancelado. Preencha o formulário e tente novamente.
+          </div>
+        )}
 
         <Card className="shadow-card border-0">
           <CardContent className="p-8">
@@ -192,8 +303,18 @@ export default function Register() {
                 </div>
               )}
 
-              <Button type="submit" className="w-full mt-2" size="lg" disabled={loading || !!cnpjError}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Criar conta"}
+              <Button
+                type="submit"
+                className="w-full mt-2 gap-2"
+                size="lg"
+                disabled={loading || !!cnpjError}
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CreditCard className="h-4 w-4" />
+                )}
+                {loading ? "Redirecionando para pagamento..." : "Continuar para pagamento — R$29,90/mês"}
               </Button>
             </form>
 
@@ -205,6 +326,10 @@ export default function Register() {
             </p>
           </CardContent>
         </Card>
+
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          🔒 Pagamento processado com segurança pelo Stripe
+        </p>
       </div>
     </div>
   );

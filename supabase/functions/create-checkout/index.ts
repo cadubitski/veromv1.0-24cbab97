@@ -14,65 +14,46 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { customer_email, saas_key, success_url, cancel_url } = await req.json();
+    const { email, price_id, success_url, cancel_url } = await req.json();
 
-    if (!customer_email || !saas_key || !success_url || !cancel_url) {
+    if (!email || !price_id || !success_url || !cancel_url) {
       return new Response(
-        JSON.stringify({ error: "Campos obrigatórios ausentes" }),
+        JSON.stringify({ error: "Campos obrigatórios ausentes: email, price_id, success_url, cancel_url" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const body = JSON.stringify({ customer_email, saas_key, success_url, cancel_url });
-    const headers = {
-      "Content-Type": "application/json",
-      apikey: BILLING_ANON,
-      Authorization: `Bearer ${BILLING_ANON}`,
-    };
+    const res = await fetch(`${BILLING_URL}/functions/v1/billing-core/stripe/create-checkout`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: BILLING_ANON,
+        Authorization: `Bearer ${BILLING_ANON}`,
+      },
+      body: JSON.stringify({ email, priceId: price_id, successUrl: success_url, cancelUrl: cancel_url }),
+    });
 
-    // Try multiple possible endpoint names
-    const endpoints = [
-      "/functions/v1/billing-core/stripe/checkout-link",
-      "/functions/v1/billing-core/stripe/create-checkout",
-      "/functions/v1/billing-core/stripe/checkout",
-      "/functions/v1/billing-core/stripe/checkout-session",
-      "/functions/v1/billing-core/checkout",
-    ];
+    const data = await res.json();
 
-    let lastError = "";
-    let lastBody = "";
-    for (const endpoint of endpoints) {
-      const res = await fetch(`${BILLING_URL}${endpoint}`, {
-        method: "POST",
-        headers,
-        body,
-      });
-      const text = await res.text();
-      let data: any;
-      try { data = JSON.parse(text); } catch { data = { raw: text }; }
+    if (!res.ok) {
+      return new Response(
+        JSON.stringify({ error: data?.error || "Erro ao criar sessão de checkout" }),
+        { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-      // If it's not a "route not found" error, this is the right endpoint
-      if (res.ok || !data?.error?.startsWith("Route not found")) {
-        if (data?.url || data?.checkout_url || data?.sessionUrl || data?.session_url) {
-          const url = data.url || data.checkout_url || data.sessionUrl || data.session_url;
-          return new Response(
-            JSON.stringify({ url }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        // Return whatever the billing-core returned so we can debug
-        return new Response(
-          JSON.stringify({ debug_endpoint: endpoint, status: res.status, data }),
-          { status: res.ok ? 200 : res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      lastError = data?.error || text;
-      lastBody = text;
+    // billing-core may return url, checkout_url, sessionUrl, etc.
+    const url = data?.url || data?.checkout_url || data?.sessionUrl || data?.session_url || data?.checkoutUrl;
+    if (!url) {
+      return new Response(
+        JSON.stringify({ error: "URL de checkout não retornada", debug: data }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(
-      JSON.stringify({ error: "Endpoint de checkout não encontrado no billing-core", lastError, lastBody }),
-      { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ url }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
     return new Response(
