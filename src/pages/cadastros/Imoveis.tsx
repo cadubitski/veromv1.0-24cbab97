@@ -20,8 +20,9 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Search, Pencil, Trash2, ArrowLeft, Home } from "lucide-react";
+import { Loader2, Plus, Search, Pencil, Trash2, ArrowLeft, Home, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { maskCurrency, parseCurrency } from "@/lib/masks";
 
 interface PropertyType { id: string; name: string; }
 interface Property {
@@ -32,6 +33,7 @@ interface Property {
   negotiation_percent: number | null; area_m2: number | null;
   registry_number: string | null; municipal_registration: string | null;
   address: string | null; status: "disponivel" | "alugado" | "vendido" | "inativo";
+  client_name?: string;
 }
 interface Client { id: string; full_name: string; }
 
@@ -39,6 +41,8 @@ const DEFAULT_TYPES = ["Apartamento", "Casa", "Comercial", "Terreno", "Rural", "
 
 type Purpose = "aluguel" | "venda" | "ambos";
 type PropStatus = "disponivel" | "alugado" | "vendido" | "inativo";
+type SortKey = "client_name" | "code" | "status" | "purpose" | "address";
+type SortDir = "asc" | "desc";
 
 const EMPTY_FORM: {
   property_type_id: string; code: string; purpose: Purpose;
@@ -65,11 +69,14 @@ export default function Imoveis() {
   const { company } = useAuth();
 
   const [client, setClient] = useState<Client | null>(null);
+  const [clients, setClients] = useState<Client[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
+  const [sortKey, setSortKey] = useState<SortKey>("client_name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editProp, setEditProp] = useState<Property | null>(null);
@@ -86,7 +93,6 @@ export default function Imoveis() {
     setLoading(true);
     if (!company?.id) return;
 
-    // Load property types, ensuring defaults exist
     const { data: ptData } = await supabase
       .from("property_types")
       .select("id, name")
@@ -94,8 +100,6 @@ export default function Imoveis() {
       .order("name");
 
     let types: PropertyType[] = ptData ?? [];
-
-    // Seed defaults if none exist
     if (types.length === 0) {
       const inserts = DEFAULT_TYPES.map((name) => ({ company_id: company.id, name, is_default: true }));
       const { data: inserted } = await supabase.from("property_types").insert(inserts).select("id, name");
@@ -103,17 +107,28 @@ export default function Imoveis() {
     }
     setPropertyTypes(types);
 
-    // Load client if filtered
+    // Load all clients for owner name lookup
+    const { data: allClients } = await supabase
+      .from("clients")
+      .select("id, full_name")
+      .eq("company_id", company.id);
+    const clientMap: Record<string, string> = {};
+    (allClients ?? []).forEach((c: Client) => { clientMap[c.id] = c.full_name; });
+    setClients(allClients as Client[] ?? []);
+
     if (clientId) {
       const { data: cl } = await supabase.from("clients").select("id, full_name").eq("id", clientId).maybeSingle();
       setClient(cl as Client | null);
     }
 
-    // Load properties
     let query = supabase.from("properties").select("*").eq("company_id", company.id);
     if (clientId) query = query.eq("client_id", clientId);
-    const { data: propData } = await query.order("code");
-    setProperties((propData as Property[]) ?? []);
+    const { data: propData } = await query;
+    const propsWithName = ((propData as Property[]) ?? []).map((p) => ({
+      ...p,
+      client_name: clientMap[p.client_id] ?? "—",
+    }));
+    setProperties(propsWithName);
     setLoading(false);
   };
 
@@ -134,8 +149,8 @@ export default function Imoveis() {
       property_type_id: p.property_type_id ?? "",
       code: p.code,
       purpose: p.purpose,
-      rent_value: p.rent_value?.toString() ?? "",
-      sale_value: p.sale_value?.toString() ?? "",
+      rent_value: p.rent_value != null ? maskCurrency(String(Math.round(p.rent_value * 100))) : "",
+      sale_value: p.sale_value != null ? maskCurrency(String(Math.round(p.sale_value * 100))) : "",
       negotiation_percent: p.negotiation_percent?.toString() ?? "",
       area_m2: p.area_m2?.toString() ?? "",
       registry_number: p.registry_number ?? "",
@@ -175,7 +190,6 @@ export default function Imoveis() {
     setSaving(true);
     setError(null);
     try {
-      // Check code uniqueness within company
       let codeQuery = supabase
         .from("properties")
         .select("id")
@@ -189,8 +203,8 @@ export default function Imoveis() {
         property_type_id: form.property_type_id || null,
         code: form.code.trim(),
         purpose: form.purpose,
-        rent_value: form.rent_value ? parseFloat(form.rent_value) : null,
-        sale_value: form.sale_value ? parseFloat(form.sale_value) : null,
+        rent_value: parseCurrency(form.rent_value),
+        sale_value: parseCurrency(form.sale_value),
         negotiation_percent: form.negotiation_percent ? parseFloat(form.negotiation_percent) : null,
         area_m2: form.area_m2 ? parseFloat(form.area_m2) : null,
         registry_number: form.registry_number || null,
@@ -238,16 +252,44 @@ export default function Imoveis() {
 
   const f = (key: keyof typeof form, value: string) => setForm((p) => ({ ...p, [key]: value }));
 
-  const filtered = useMemo(() => properties.filter((p) => {
-    const matchSearch = p.code.toLowerCase().includes(search.toLowerCase()) || (p.address ?? "").toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === "todos" || p.status === statusFilter;
-    return matchSearch && matchStatus;
-  }), [properties, search, statusFilter]);
+  const handleCurrencyInput = (key: "rent_value" | "sale_value", v: string) => {
+    f(key, maskCurrency(v));
+  };
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir((d) => d === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("asc"); }
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ChevronUp className="h-3 w-3 opacity-20 inline ml-1" />;
+    return sortDir === "asc"
+      ? <ChevronUp className="h-3 w-3 opacity-80 inline ml-1" />
+      : <ChevronDown className="h-3 w-3 opacity-80 inline ml-1" />;
+  };
+
+  const filtered = useMemo(() => {
+    let arr = properties.filter((p) => {
+      const matchSearch =
+        p.code.toLowerCase().includes(search.toLowerCase()) ||
+        (p.address ?? "").toLowerCase().includes(search.toLowerCase()) ||
+        (p.client_name ?? "").toLowerCase().includes(search.toLowerCase());
+      const matchStatus = statusFilter === "todos" || p.status === statusFilter;
+      return matchSearch && matchStatus;
+    });
+    arr = [...arr].sort((a, b) => {
+      const va = (a[sortKey] ?? "") as string;
+      const vb = (b[sortKey] ?? "") as string;
+      return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+    return arr;
+  }, [properties, search, statusFilter, sortKey, sortDir]);
+
+  const thClass = "cursor-pointer select-none hover:text-foreground transition-colors";
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-center gap-4">
           {clientId && (
             <Button variant="ghost" size="icon" onClick={() => navigate("/cadastros/clientes")}>
@@ -270,11 +312,10 @@ export default function Imoveis() {
           )}
         </div>
 
-        {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar por código ou endereço..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            <Input placeholder="Buscar por código, proprietário ou endereço..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
@@ -288,46 +329,50 @@ export default function Imoveis() {
           </Select>
         </div>
 
-        {/* Table */}
         <div className="card-premium rounded-xl overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow className="border-border/40">
-                <TableHead>Código</TableHead>
-                <TableHead className="hidden sm:table-cell">Tipo</TableHead>
-                <TableHead className="hidden md:table-cell">Finalidade</TableHead>
-                <TableHead className="hidden lg:table-cell">Endereço</TableHead>
-                <TableHead>Status</TableHead>
+                {!clientId && (
+                  <TableHead className={thClass} onClick={() => handleSort("client_name")}>
+                    Proprietário <SortIcon col="client_name" />
+                  </TableHead>
+                )}
+                <TableHead className={thClass} onClick={() => handleSort("code")}>Código <SortIcon col="code" /></TableHead>
+                <TableHead className={`hidden sm:table-cell ${thClass}`} onClick={() => handleSort("purpose")}>Finalidade <SortIcon col="purpose" /></TableHead>
+                <TableHead className={`hidden lg:table-cell ${thClass}`} onClick={() => handleSort("address")}>Endereço <SortIcon col="address" /></TableHead>
+                <TableHead className={thClass} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={clientId ? 5 : 6} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground text-sm">
+                <TableRow><TableCell colSpan={clientId ? 5 : 6} className="text-center py-12 text-muted-foreground text-sm">
                   {clientId ? "Nenhum imóvel vinculado a este cliente." : "Nenhum imóvel cadastrado."}
                 </TableCell></TableRow>
               ) : (
                 filtered.map((p) => (
                   <TableRow key={p.id} className="border-border/40 hover:bg-muted/30 transition-colors">
+                    {!clientId && (
+                      <TableCell
+                        className="font-medium cursor-pointer hover:text-primary transition-colors"
+                        onClick={() => navigate(`/cadastros/clientes/${p.client_id}/imoveis`)}
+                      >
+                        {p.client_name}
+                      </TableCell>
+                    )}
                     <TableCell className="font-mono font-medium text-sm">{p.code}</TableCell>
-                    <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
-                      {propertyTypes.find((t) => t.id === p.property_type_id)?.name ?? "—"}
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground text-sm capitalize">{p.purpose}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-muted-foreground text-sm capitalize">{p.purpose}</TableCell>
                     <TableCell className="hidden lg:table-cell text-muted-foreground text-sm truncate max-w-[200px]">{p.address || "—"}</TableCell>
                     <TableCell>
                       <Badge variant={statusVariant[p.status]} className="text-xs">{statusLabel[p.status]}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => openDelete(p)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => openDelete(p)}><Trash2 className="h-4 w-4" /></Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -378,13 +423,7 @@ export default function Imoveis() {
                 </Select>
               </div>
               <div className="flex gap-2 mt-1">
-                <Input
-                  value={newTypeName}
-                  onChange={(e) => setNewTypeName(e.target.value)}
-                  placeholder="Criar novo tipo..."
-                  className="h-8 text-xs"
-                  onKeyDown={(e) => e.key === "Enter" && handleAddType()}
-                />
+                <Input value={newTypeName} onChange={(e) => setNewTypeName(e.target.value)} placeholder="Criar novo tipo..." className="h-8 text-xs" onKeyDown={(e) => e.key === "Enter" && handleAddType()} />
                 <Button variant="outline" size="sm" onClick={handleAddType} disabled={addingType || !newTypeName.trim()} className="h-8 text-xs shrink-0">
                   {addingType ? <Loader2 className="h-3 w-3 animate-spin" /> : "Adicionar"}
                 </Button>
@@ -406,11 +445,21 @@ export default function Imoveis() {
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <FieldLabel label="Valor aluguel (R$)" tooltip="Valor mensal do aluguel cobrado pelo imóvel." />
-                <Input type="number" value={form.rent_value} onChange={(e) => f("rent_value", e.target.value)} placeholder="0,00" />
+                <Input
+                  value={form.rent_value}
+                  onChange={(e) => handleCurrencyInput("rent_value", e.target.value)}
+                  placeholder="0,00"
+                  inputMode="numeric"
+                />
               </div>
               <div className="space-y-2">
                 <FieldLabel label="Valor venda (R$)" tooltip="Valor estimado para venda do imóvel." />
-                <Input type="number" value={form.sale_value} onChange={(e) => f("sale_value", e.target.value)} placeholder="0,00" />
+                <Input
+                  value={form.sale_value}
+                  onChange={(e) => handleCurrencyInput("sale_value", e.target.value)}
+                  placeholder="0,00"
+                  inputMode="numeric"
+                />
               </div>
               <div className="space-y-2">
                 <FieldLabel label="Negociação máx. (%)" tooltip="Percentual máximo autorizado pelo proprietário para negociação do preço." />

@@ -5,7 +5,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { FieldLabel } from "@/components/InfoTooltip";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -22,8 +21,9 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Search, Eye, Pencil, Trash2, UserCheck, UserX } from "lucide-react";
+import { Loader2, Plus, Search, Eye, Pencil, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { maskCPF, maskCNPJ, maskPhone } from "@/lib/masks";
 
 interface Client {
   id: string;
@@ -39,6 +39,9 @@ interface Client {
   status: "ativo" | "inativo";
   created_at: string;
 }
+
+type SortKey = "full_name" | "person_type" | "document" | "status" | "created_at";
+type SortDir = "asc" | "desc";
 
 const EMPTY_FORM: Omit<Client, "id" | "company_id" | "created_at"> = {
   person_type: "fisica",
@@ -59,6 +62,8 @@ export default function Clientes() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"todos" | "ativo" | "inativo">("todos");
+  const [sortKey, setSortKey] = useState<SortKey>("full_name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -73,18 +78,27 @@ export default function Clientes() {
 
   const loadClients = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("clients")
-      .select("*")
-      .order("full_name");
+    const { data } = await supabase.from("clients").select("*");
     setClients((data as Client[]) ?? []);
     setLoading(false);
   };
 
   useEffect(() => { loadClients(); }, []);
 
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir((d) => d === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("asc"); }
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ChevronUp className="h-3 w-3 opacity-20 inline ml-1" />;
+    return sortDir === "asc"
+      ? <ChevronUp className="h-3 w-3 opacity-80 inline ml-1" />
+      : <ChevronDown className="h-3 w-3 opacity-80 inline ml-1" />;
+  };
+
   const filtered = useMemo(() => {
-    return clients.filter((c) => {
+    let arr = clients.filter((c) => {
       const matchesSearch =
         c.full_name.toLowerCase().includes(search.toLowerCase()) ||
         (c.document ?? "").includes(search) ||
@@ -92,7 +106,13 @@ export default function Clientes() {
       const matchesStatus = statusFilter === "todos" || c.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
-  }, [clients, search, statusFilter]);
+    arr = [...arr].sort((a, b) => {
+      const va = (a[sortKey] ?? "") as string;
+      const vb = (b[sortKey] ?? "") as string;
+      return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+    return arr;
+  }, [clients, search, statusFilter, sortKey, sortDir]);
 
   const openCreate = () => {
     setEditClient(null);
@@ -118,16 +138,8 @@ export default function Clientes() {
     setDialogOpen(true);
   };
 
-  const openView = (client: Client) => {
-    setViewClient(client);
-    setViewDialogOpen(true);
-  };
-
-  const openDelete = (client: Client) => {
-    setDeleteTarget(client);
-    setBlockMessage(null);
-    setDeleteDialogOpen(true);
-  };
+  const openView = (client: Client) => { setViewClient(client); setViewDialogOpen(true); };
+  const openDelete = (client: Client) => { setDeleteTarget(client); setBlockMessage(null); setDeleteDialogOpen(true); };
 
   const handleSave = async () => {
     if (!form.full_name.trim()) { setError("Nome completo é obrigatório."); return; }
@@ -163,7 +175,6 @@ export default function Clientes() {
     setDeleting(true);
     setBlockMessage(null);
     try {
-      // Check linked properties
       const { count: propCount } = await supabase
         .from("properties")
         .select("id", { count: "exact", head: true })
@@ -187,10 +198,16 @@ export default function Clientes() {
 
   const f = (key: keyof typeof form, value: string) => setForm((p) => ({ ...p, [key]: value }));
 
+  const handleDocument = (v: string) => {
+    const masked = form.person_type === "fisica" ? maskCPF(v) : maskCNPJ(v);
+    f("document", masked);
+  };
+
+  const thClass = "cursor-pointer select-none hover:text-foreground transition-colors";
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Clientes</h1>
@@ -201,7 +218,6 @@ export default function Clientes() {
           </Button>
         </div>
 
-        {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -213,9 +229,7 @@ export default function Clientes() {
             />
           </div>
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
-            <SelectTrigger className="w-full sm:w-44">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="w-full sm:w-44"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os status</SelectItem>
               <SelectItem value="ativo">Ativo</SelectItem>
@@ -224,32 +238,25 @@ export default function Clientes() {
           </Select>
         </div>
 
-        {/* Table */}
         <div className="card-premium rounded-xl overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow className="border-border/40">
-                <TableHead>Nome</TableHead>
-                <TableHead className="hidden sm:table-cell">Tipo</TableHead>
-                <TableHead className="hidden md:table-cell">Documento</TableHead>
+                <TableHead className={thClass} onClick={() => handleSort("full_name")}>Nome <SortIcon col="full_name" /></TableHead>
+                <TableHead className={`hidden sm:table-cell ${thClass}`} onClick={() => handleSort("person_type")}>Tipo <SortIcon col="person_type" /></TableHead>
+                <TableHead className={`hidden md:table-cell ${thClass}`} onClick={() => handleSort("document")}>Documento <SortIcon col="document" /></TableHead>
                 <TableHead className="hidden lg:table-cell">Contato</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className={thClass} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12">
-                    <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
-                  </TableCell>
-                </TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-muted-foreground text-sm">
-                    {search || statusFilter !== "todos" ? "Nenhum cliente encontrado com os filtros aplicados." : "Nenhum cliente cadastrado ainda."}
-                  </TableCell>
-                </TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground text-sm">
+                  {search || statusFilter !== "todos" ? "Nenhum cliente encontrado com os filtros aplicados." : "Nenhum cliente cadastrado ainda."}
+                </TableCell></TableRow>
               ) : (
                 filtered.map((client) => (
                   <TableRow key={client.id} className="border-border/40 hover:bg-muted/30 transition-colors">
@@ -266,18 +273,10 @@ export default function Clientes() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openView(client)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(client)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => openDelete(client)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-8 text-xs hidden sm:flex gap-1.5" onClick={() => navigate(`/cadastros/clientes/${client.id}/imoveis`)}>
-                          Imóveis
-                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openView(client)}><Eye className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(client)}><Pencil className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => openDelete(client)}><Trash2 className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="sm" className="h-8 text-xs hidden sm:flex gap-1.5" onClick={() => navigate(`/cadastros/clientes/${client.id}/imoveis`)}>Imóveis</Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -301,7 +300,7 @@ export default function Clientes() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <FieldLabel label="Tipo de pessoa" tooltip="Selecione Pessoa Física para CPF ou Jurídica para CNPJ." required />
-                <Select value={form.person_type} onValueChange={(v) => f("person_type", v)}>
+                <Select value={form.person_type} onValueChange={(v) => { f("person_type", v); f("document", ""); }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="fisica">Pessoa Física</SelectItem>
@@ -325,17 +324,32 @@ export default function Clientes() {
               <Input value={form.full_name} onChange={(e) => f("full_name", e.target.value)} placeholder="Ex: João Silva" />
             </div>
             <div className="space-y-2">
-              <FieldLabel label={form.person_type === "fisica" ? "CPF" : "CNPJ"} tooltip={form.person_type === "fisica" ? "CPF do proprietário (somente números)." : "CNPJ da empresa proprietária."} />
-              <Input value={form.document ?? ""} onChange={(e) => f("document", e.target.value)} placeholder={form.person_type === "fisica" ? "000.000.000-00" : "00.000.000/0000-00"} />
+              <FieldLabel label={form.person_type === "fisica" ? "CPF" : "CNPJ"} tooltip={form.person_type === "fisica" ? "CPF do proprietário." : "CNPJ da empresa proprietária."} />
+              <Input
+                value={form.document ?? ""}
+                onChange={(e) => handleDocument(e.target.value)}
+                placeholder={form.person_type === "fisica" ? "000.000.000-00" : "00.000.000/0000-00"}
+                inputMode="numeric"
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <FieldLabel label="Telefone" tooltip="Número de telefone fixo para contato." />
-                <Input value={form.phone ?? ""} onChange={(e) => f("phone", e.target.value)} placeholder="(00) 0000-0000" />
+                <Input
+                  value={form.phone ?? ""}
+                  onChange={(e) => f("phone", maskPhone(e.target.value))}
+                  placeholder="(00) 0000-0000"
+                  inputMode="numeric"
+                />
               </div>
               <div className="space-y-2">
                 <FieldLabel label="WhatsApp" tooltip="Número de WhatsApp para comunicação rápida." />
-                <Input value={form.whatsapp ?? ""} onChange={(e) => f("whatsapp", e.target.value)} placeholder="(00) 00000-0000" />
+                <Input
+                  value={form.whatsapp ?? ""}
+                  onChange={(e) => f("whatsapp", maskPhone(e.target.value))}
+                  placeholder="(00) 00000-0000"
+                  inputMode="numeric"
+                />
               </div>
             </div>
             <div className="space-y-2">
@@ -348,13 +362,7 @@ export default function Clientes() {
             </div>
             <div className="space-y-2">
               <FieldLabel label="Observações internas" tooltip="Notas internas sobre este cliente, visíveis apenas para a equipe." />
-              <Textarea
-                value={form.notes ?? ""}
-                onChange={(e) => f("notes", e.target.value)}
-                placeholder="Informações relevantes sobre este cliente..."
-                rows={3}
-                className="resize-none"
-              />
+              <Textarea value={form.notes ?? ""} onChange={(e) => f("notes", e.target.value)} placeholder="Informações relevantes sobre este cliente..." rows={3} className="resize-none" />
             </div>
             {error && <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
           </div>
@@ -370,9 +378,7 @@ export default function Clientes() {
       {/* View Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Dados do cliente</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Dados do cliente</DialogTitle></DialogHeader>
           {viewClient && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
@@ -393,9 +399,7 @@ export default function Clientes() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setViewDialogOpen(false)}>Fechar</Button>
             {viewClient && (
-              <Button onClick={() => { setViewDialogOpen(false); navigate(`/cadastros/clientes/${viewClient.id}/imoveis`); }}>
-                Ver imóveis
-              </Button>
+              <Button onClick={() => { setViewDialogOpen(false); navigate(`/cadastros/clientes/${viewClient.id}/imoveis`); }}>Ver imóveis</Button>
             )}
           </DialogFooter>
         </DialogContent>
@@ -410,9 +414,7 @@ export default function Clientes() {
               Tem certeza que deseja excluir <strong>{deleteTarget?.full_name}</strong>? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {blockMessage && (
-            <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{blockMessage}</div>
-          )}
+          {blockMessage && <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{blockMessage}</div>}
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             {!blockMessage && (
