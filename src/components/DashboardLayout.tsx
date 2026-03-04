@@ -45,9 +45,9 @@ function NavItem({ item, collapsed, onNavigate }: { item: NavItem; collapsed: bo
         onClick={onNavigate}
         className={cn(
           "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-          active
+    active
             ? "bg-sidebar-primary/20 text-sidebar-primary"
-            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            : "hover:bg-sidebar-accent"
         )}
       >
         <item.icon className="h-5 w-5 shrink-0" />
@@ -62,8 +62,9 @@ function NavItem({ item, collapsed, onNavigate }: { item: NavItem; collapsed: bo
         onClick={() => setOpen(!open)}
         className={cn(
           "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-          "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          "hover:bg-sidebar-accent"
         )}
+        style={{color: 'hsl(var(--sidebar-foreground))'}}
       >
         <item.icon className="h-5 w-5 shrink-0" />
         {!collapsed && (
@@ -85,9 +86,10 @@ function NavItem({ item, collapsed, onNavigate }: { item: NavItem; collapsed: bo
                 className={cn(
                   "block rounded-lg px-3 py-2 text-sm transition-colors",
                   active
-                    ? "bg-sidebar-primary/20 text-sidebar-primary font-medium"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    ? "bg-sidebar-primary/20 font-medium"
+                    : "hover:bg-sidebar-accent"
                 )}
+                style={{color: active ? 'hsl(var(--sidebar-primary))' : 'hsl(var(--sidebar-foreground))'}}
               >
                 {child.label}
               </Link>
@@ -113,13 +115,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const navItems = role === "admin" ? [...userNav, ...adminNav] : userNav;
 
   const SidebarContent = ({ onNavigate }: { onNavigate?: () => void }) => (
-    <div className="flex h-full flex-col bg-sidebar-background text-sidebar-foreground">
+    <div className="flex h-full flex-col" style={{backgroundColor: 'hsl(var(--sidebar-background))', color: 'hsl(var(--sidebar-foreground))'}}>
       {/* Logo */}
-      <div className="flex items-center gap-3 border-b border-sidebar-border px-4 py-5">
-        <Building2 className="h-7 w-7 shrink-0 text-sidebar-primary" />
+      <div className="flex items-center gap-3 px-4 py-5" style={{borderBottom: '1px solid hsl(var(--sidebar-border))'}}>
+        <Building2 className="h-7 w-7 shrink-0" style={{color: 'hsl(var(--sidebar-primary))'}} />
         {!collapsed && (
           <div className="min-w-0">
-            <p className="font-bold text-sidebar-accent-foreground">Verom</p>
+            <p className="font-bold" style={{color: 'hsl(var(--sidebar-primary-foreground))'}}>Verom</p>
             <p className="truncate text-xs text-sidebar-foreground/70">{company?.name ?? "..."}</p>
           </div>
         )}
@@ -147,7 +149,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
         <button
           onClick={handleSignOut}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-sidebar-accent transition-colors"
+          style={{color: 'hsl(var(--sidebar-foreground))'}}
         >
           <LogOut className="h-4 w-4 shrink-0" />
           {!collapsed && <span>Sair</span>}

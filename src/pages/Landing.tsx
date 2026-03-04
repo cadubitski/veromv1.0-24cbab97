@@ -31,10 +31,7 @@ export default function Landing() {
           </div>
           <div className="flex items-center gap-3">
             <Link to="/login">
-              <Button variant="ghost">Entrar</Button>
-            </Link>
-            <Link to="/register">
-              <Button>Começar grátis</Button>
+              <Button>Entrar</Button>
             </Link>
           </div>
         </div>
@@ -58,12 +55,12 @@ export default function Landing() {
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link to="/register">
               <Button size="lg" className="bg-white text-primary hover:bg-white/90 gap-2 px-8 text-base font-semibold">
-                Criar conta gratuita <ArrowRight className="h-4 w-4" />
+                Assinar agora — R$29,90/mês <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
             <Link to="/login">
-              <Button size="lg" variant="outline" className="border-white/40 text-white hover:bg-white/10 px-8 text-base">
-                Já tenho conta
+              <Button size="lg" className="bg-white text-primary hover:bg-white/90 gap-2 px-8 text-base font-semibold">
+                Já tenho conta <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
           </div>
@@ -122,6 +119,11 @@ export default function Landing() {
               <Link to="/register" className="mt-8 block">
                 <Button className="w-full" size="lg">
                   Assinar agora — R$29,90/mês
+                </Button>
+              </Link>
+              <Link to="/login" className="mt-3 block">
+                <Button className="w-full" size="lg" variant="outline">
+                  Já tenho uma conta
                 </Button>
               </Link>
             </CardContent>
