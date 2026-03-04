@@ -33,15 +33,32 @@ export default function Register() {
   // Step: "form" | "completing" | "done"
   const [step, setStep] = useState<"form" | "completing" | "done">("form");
 
-  // On mount, check if returning from Stripe checkout
+  // On mount, restore form data or complete registration
   useEffect(() => {
     const sessionId = searchParams.get("session_id");
-    const pending = localStorage.getItem(REGISTER_PENDING_KEY);
+    const rawPending = localStorage.getItem(REGISTER_PENDING_KEY);
 
-    if (sessionId && pending) {
-      setStep("completing");
-      const pendingData = JSON.parse(pending);
-      completeRegistration(pendingData);
+    if (rawPending) {
+      try {
+        const pendingData = JSON.parse(rawPending);
+        // Restore form fields so user can see their data
+        setForm((f) => ({
+          ...f,
+          cnpj: pendingData.cnpj || "",
+          companyName: pendingData.companyName || "",
+          fullName: pendingData.fullName || "",
+          email: pendingData.email || "",
+          password: pendingData.password || "",
+          confirmPassword: pendingData.password || "",
+        }));
+
+        if (sessionId) {
+          setStep("completing");
+          completeRegistration(pendingData);
+        }
+      } catch {
+        localStorage.removeItem(REGISTER_PENDING_KEY);
+      }
     }
   }, []);
 
