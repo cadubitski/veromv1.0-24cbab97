@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Building2, LayoutDashboard, Users, CreditCard,
   LogOut, Menu, ChevronDown, ChevronRight,
-  Shield, BookUser, Home
+  Shield, BookUser, Home, Sun, Moon
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -81,7 +81,7 @@ function NavItem({ item, collapsed, onNavigate }: { item: NavItem; collapsed: bo
       {open && !collapsed && (
         <div className="ml-7 mt-1 space-y-0.5 border-l border-[hsl(var(--sidebar-border))] pl-3">
           {item.children?.map((child) => {
-            const active = location.pathname === child.href;
+            const active = location.pathname === child.href || location.pathname.startsWith(child.href + "/");
             return (
               <Link
                 key={child.href}
@@ -102,6 +102,46 @@ function NavItem({ item, collapsed, onNavigate }: { item: NavItem; collapsed: bo
       )}
     </div>
   );
+}
+
+function ThemeToggle() {
+  const [dark, setDark] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const stored = localStorage.getItem("verom-theme");
+    if (stored) return stored === "dark";
+    return true; // default dark
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (dark) {
+      root.classList.add("dark");
+      localStorage.setItem("verom-theme", "dark");
+    } else {
+      root.classList.remove("dark");
+      localStorage.setItem("verom-theme", "light");
+    }
+  }, [dark]);
+
+  return (
+    <button
+      onClick={() => setDark((d) => !d)}
+      title={dark ? "Mudar para modo claro" : "Mudar para modo escuro"}
+      className="flex items-center justify-center h-8 w-8 rounded-lg text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-accent))] hover:text-[hsl(var(--sidebar-accent-foreground))] transition-colors"
+    >
+      {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+    </button>
+  );
+}
+
+// Apply saved theme on load
+if (typeof window !== "undefined") {
+  const stored = localStorage.getItem("verom-theme");
+  if (stored === "light") {
+    document.documentElement.classList.remove("dark");
+  } else {
+    document.documentElement.classList.add("dark");
+  }
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -125,11 +165,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Building2 className="h-4.5 w-4.5 text-primary" style={{height: '1.125rem', width: '1.125rem'}} />
         </div>
         {!collapsed && (
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-bold text-[hsl(var(--sidebar-accent-foreground))] tracking-tight">Verom</p>
             <p className="truncate text-xs text-[hsl(var(--sidebar-foreground))]">{company?.name ?? "..."}</p>
           </div>
         )}
+        {!collapsed && <ThemeToggle />}
       </div>
 
       {/* Nav */}
@@ -138,6 +179,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <p className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-[hsl(var(--sidebar-foreground)/0.5)]">
             Menu
           </p>
+        )}
+        {collapsed && (
+          <div className="flex justify-center py-1">
+            <ThemeToggle />
+          </div>
         )}
         {navItems.map((item) => (
           <NavItem key={item.label} item={item} collapsed={collapsed} onNavigate={onNavigate} />
@@ -203,10 +249,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-1">
             <Building2 className="h-5 w-5 text-primary" />
             <span className="font-bold text-foreground">Verom</span>
           </div>
+          <ThemeToggle />
         </header>
 
         {/* Content */}
