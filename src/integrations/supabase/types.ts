@@ -261,6 +261,180 @@ export type Database = {
           },
         ]
       }
+      rental_contracts: {
+        Row: {
+          company_id: string
+          created_at: string
+          due_day: number
+          duration_months: number
+          id: string
+          property_id: string
+          rent_value: number
+          start_date: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          due_day: number
+          duration_months: number
+          id?: string
+          property_id: string
+          rent_value: number
+          start_date: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          due_day?: number
+          duration_months?: number
+          id?: string
+          property_id?: string
+          rent_value?: number
+          start_date?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_contracts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_contracts_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_contracts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_installments: {
+        Row: {
+          company_id: string
+          competence: string
+          contract_id: string
+          created_at: string
+          due_date: string
+          id: string
+          paid_at: string | null
+          status: string
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          company_id: string
+          competence: string
+          contract_id: string
+          created_at?: string
+          due_date: string
+          id?: string
+          paid_at?: string | null
+          status?: string
+          updated_at?: string
+          value: number
+        }
+        Update: {
+          company_id?: string
+          competence?: string
+          contract_id?: string
+          created_at?: string
+          due_date?: string
+          id?: string
+          paid_at?: string | null
+          status?: string
+          updated_at?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_installments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_installments_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "rental_contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenants: {
+        Row: {
+          address: string | null
+          company_id: string
+          created_at: string
+          document: string | null
+          email: string | null
+          full_name: string
+          id: string
+          notes: string | null
+          person_type: string
+          phone: string | null
+          status: string
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          address?: string | null
+          company_id: string
+          created_at?: string
+          document?: string | null
+          email?: string | null
+          full_name: string
+          id?: string
+          notes?: string | null
+          person_type?: string
+          phone?: string | null
+          status?: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          address?: string | null
+          company_id?: string
+          created_at?: string
+          document?: string | null
+          email?: string | null
+          full_name?: string
+          id?: string
+          notes?: string | null
+          person_type?: string
+          phone?: string | null
+          status?: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenants_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           company_id: string

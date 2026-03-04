@@ -13,6 +13,8 @@ import Financeiro from "./pages/admin/Financeiro";
 import Usuarios from "./pages/admin/Usuarios";
 import Clientes from "./pages/cadastros/Clientes";
 import Imoveis from "./pages/cadastros/Imoveis";
+import Inquilinos from "./pages/cadastros/Inquilinos";
+import GestaoAluguel from "./pages/movimentos/GestaoAluguel";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +36,8 @@ const App = () => (
             <Route path="/cadastros/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
             <Route path="/cadastros/clientes/:clientId/imoveis" element={<ProtectedRoute><Imoveis /></ProtectedRoute>} />
             <Route path="/cadastros/imoveis" element={<ProtectedRoute><Imoveis /></ProtectedRoute>} />
+            <Route path="/cadastros/inquilinos" element={<ProtectedRoute><Inquilinos /></ProtectedRoute>} />
+            <Route path="/movimentos/gestao-aluguel" element={<ProtectedRoute><GestaoAluguel /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

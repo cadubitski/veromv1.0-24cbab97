@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Building2, LayoutDashboard, Users, CreditCard,
   LogOut, Menu, ChevronDown, ChevronRight,
-  Shield, BookUser, Home, Sun, Moon
+  Shield, BookUser, Home, Sun, Moon, TrendingUp
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,14 @@ const userNav: NavItem[] = [
     children: [
       { label: "Clientes", href: "/cadastros/clientes" },
       { label: "Imóveis", href: "/cadastros/imoveis" },
+      { label: "Inquilinos", href: "/cadastros/inquilinos" },
+    ],
+  },
+  {
+    label: "Movimentos",
+    icon: TrendingUp,
+    children: [
+      { label: "Gestão de Aluguel", href: "/movimentos/gestao-aluguel" },
     ],
   },
 ];
