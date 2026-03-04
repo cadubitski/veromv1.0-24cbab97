@@ -62,21 +62,44 @@ Deno.serve(async (req) => {
 
     const isFirstUser = count === 0;
 
-    // Create auth user
-    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    });
+    // Create auth user (handle existing user gracefully)
+    let userId: string;
+    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+    const existingAuthUser = existingUsers?.users?.find((u) => u.email === email);
 
-    if (authError) {
-      return new Response(JSON.stringify({ error: authError.message }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (existingAuthUser) {
+      // User already exists in auth - check if they have a profile (partial registration)
+      const { data: existingProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("user_id")
+        .eq("user_id", existingAuthUser.id)
+        .maybeSingle();
+
+      if (existingProfile) {
+        // Fully registered already - return success so frontend can login
+        return new Response(
+          JSON.stringify({ success: true, userId: existingAuthUser.id, role: isFirstUser ? "admin" : "user" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      userId = existingAuthUser.id;
+      // Update password in case it changed
+      await supabaseAdmin.auth.admin.updateUserById(userId, { password });
+    } else {
+      const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
       });
-    }
 
-    const userId = authUser.user.id;
+      if (authError) {
+        return new Response(JSON.stringify({ error: authError.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      userId = authUser.user.id;
+    }
 
     // Create profile
     const { error: profileError } = await supabaseAdmin.from("profiles").insert({

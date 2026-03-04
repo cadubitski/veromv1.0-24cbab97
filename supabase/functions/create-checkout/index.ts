@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
         apikey: BILLING_ANON,
         Authorization: `Bearer ${BILLING_ANON}`,
       },
-      body: JSON.stringify({ email, priceId: price_id, successUrl: success_url, cancelUrl: cancel_url }),
+      body: JSON.stringify({ email, priceId: price_id, successUrl: success_url, cancelUrl: cancel_url, saasKey: "verom" }),
     });
 
     const data = await res.json();
