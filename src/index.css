@@ -42,14 +42,14 @@
 
     --radius: 0.75rem;
 
-    --sidebar-background: 220 25% 15%;
+    --sidebar-background: 220 35% 18%;
     --sidebar-foreground: 220 15% 85%;
-    --sidebar-primary: 214 80% 60%;
+    --sidebar-primary: 214 80% 70%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 20% 22%;
-    --sidebar-accent-foreground: 220 15% 90%;
-    --sidebar-border: 220 20% 22%;
-    --sidebar-ring: 214 80% 60%;
+    --sidebar-accent: 220 30% 28%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 220 25% 28%;
+    --sidebar-ring: 214 80% 70%;
 
     --gradient-hero: linear-gradient(135deg, hsl(214 80% 46%), hsl(196 80% 40%));
     --shadow-card: 0 4px 24px -4px hsl(214 80% 46% / 0.12);
