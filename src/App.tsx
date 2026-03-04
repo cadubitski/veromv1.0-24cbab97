@@ -11,6 +11,8 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Financeiro from "./pages/admin/Financeiro";
 import Usuarios from "./pages/admin/Usuarios";
+import Clientes from "./pages/cadastros/Clientes";
+import Imoveis from "./pages/cadastros/Imoveis";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,30 +28,12 @@ const App = () => (
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/financeiro"
-              element={
-                <ProtectedRoute requireAdmin>
-                  <Financeiro />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/usuarios"
-              element={
-                <ProtectedRoute requireAdmin>
-                  <Usuarios />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/admin/financeiro" element={<ProtectedRoute requireAdmin><Financeiro /></ProtectedRoute>} />
+            <Route path="/admin/usuarios" element={<ProtectedRoute requireAdmin><Usuarios /></ProtectedRoute>} />
+            <Route path="/cadastros/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
+            <Route path="/cadastros/clientes/:clientId/imoveis" element={<ProtectedRoute><Imoveis /></ProtectedRoute>} />
+            <Route path="/cadastros/imoveis" element={<ProtectedRoute><Imoveis /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
