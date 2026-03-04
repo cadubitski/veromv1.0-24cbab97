@@ -293,8 +293,8 @@ export default function Usuarios() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-md flex flex-col max-h-[90vh]">
+          <DialogHeader className="shrink-0">
             <DialogTitle>{editUser ? "Editar usuário" : "Novo usuário"}</DialogTitle>
             <DialogDescription>
               {editUser
@@ -302,7 +302,7 @@ export default function Usuarios() {
                 : "Preencha os dados para criar um novo usuário. A senha deverá ser trocada no próximo acesso."}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="space-y-4 py-2 overflow-y-auto flex-1 pr-1">
             <div className="space-y-2">
               <Label>Nome completo *</Label>
               <Input
@@ -371,7 +371,7 @@ export default function Usuarios() {
               <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="shrink-0">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : editUser ? "Salvar" : "Criar usuário"}
