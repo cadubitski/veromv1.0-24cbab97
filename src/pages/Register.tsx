@@ -105,9 +105,9 @@ export default function Register() {
         })
       );
 
-      const origin = window.location.origin;
-      const successUrl = `${origin}/register?session_id={CHECKOUT_SESSION_ID}`;
-      const cancelUrl = `${origin}/register?canceled=true`;
+      const appOrigin = "https://verom-eight.vercel.app";
+      const successUrl = `${appOrigin}/register?session_id={CHECKOUT_SESSION_ID}`;
+      const cancelUrl = `${appOrigin}/register?canceled=true`;
 
       const BILLING_URL = "https://rdkrgtkuevzlvxzsyzrb.supabase.co/functions/v1/billing-core";
       const BILLING_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJka3JndGt1ZXZ6bHZ4enN5enJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MjQwMTEsImV4cCI6MjA4ODMwMDAxMX0.idbJkgu8ZLJhRzJUyfczfrSKgjTEksR_DMB-0IGaav4";
