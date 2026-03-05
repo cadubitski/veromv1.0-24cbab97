@@ -1,1 +1,13 @@
 project_id = "xdwtgwmkigffzmuwknqm"
+
+[functions.register]
+verify_jwt = false
+
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.delete-user]
+verify_jwt = true
+
+[functions.update-user-password]
+verify_jwt = true
