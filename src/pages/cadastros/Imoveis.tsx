@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, Search, Pencil, Trash2, ArrowLeft, Home, ChevronUp, ChevronDown } from "lucide-react";
+import ColumnSelector, { ColumnDef } from "@/components/ColumnSelector";
 import { toast } from "sonner";
 import { maskCurrency, parseCurrency } from "@/lib/masks";
 
@@ -43,6 +44,17 @@ type Purpose = "aluguel" | "venda" | "ambos";
 type PropStatus = "disponivel" | "alugado" | "vendido" | "inativo";
 type SortKey = "client_name" | "code" | "status" | "purpose" | "address";
 type SortDir = "asc" | "desc";
+
+const PROPERTY_COLUMNS: ColumnDef[] = [
+  { key: "client_name", label: "Proprietário", defaultVisible: true },
+  { key: "code", label: "Código", defaultVisible: true },
+  { key: "purpose", label: "Finalidade", defaultVisible: true },
+  { key: "address", label: "Endereço", defaultVisible: true },
+  { key: "rent_value", label: "Valor Aluguel", defaultVisible: false },
+  { key: "sale_value", label: "Valor Venda", defaultVisible: false },
+  { key: "area_m2", label: "Área (m²)", defaultVisible: false },
+  { key: "status", label: "Status", defaultVisible: true },
+];
 
 const EMPTY_FORM: {
   property_type_id: string; code: string; purpose: Purpose;
@@ -88,6 +100,9 @@ export default function Imoveis() {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [blockMessage, setBlockMessage] = useState<string | null>(null);
+  const [visibleCols, setVisibleCols] = useState<Set<string>>(
+    new Set(PROPERTY_COLUMNS.filter((c) => c.defaultVisible !== false).map((c) => c.key))
+  );
 
   const loadData = async () => {
     setLoading(true);
@@ -327,48 +342,54 @@ export default function Imoveis() {
               <SelectItem value="inativo">Inativo</SelectItem>
             </SelectContent>
           </Select>
+          <ColumnSelector columns={PROPERTY_COLUMNS} visible={visibleCols} onChange={setVisibleCols} />
         </div>
 
         <div className="card-premium rounded-xl overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow className="border-border/40">
-                {!clientId && (
+                {!clientId && visibleCols.has("client_name") && (
                   <TableHead className={thClass} onClick={() => handleSort("client_name")}>
                     Proprietário <SortIcon col="client_name" />
                   </TableHead>
                 )}
-                <TableHead className={thClass} onClick={() => handleSort("code")}>Código <SortIcon col="code" /></TableHead>
-                <TableHead className={`hidden sm:table-cell ${thClass}`} onClick={() => handleSort("purpose")}>Finalidade <SortIcon col="purpose" /></TableHead>
-                <TableHead className={`hidden lg:table-cell ${thClass}`} onClick={() => handleSort("address")}>Endereço <SortIcon col="address" /></TableHead>
-                <TableHead className={thClass} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>
+                {visibleCols.has("code") && <TableHead className={thClass} onClick={() => handleSort("code")}>Código <SortIcon col="code" /></TableHead>}
+                {visibleCols.has("purpose") && <TableHead className={thClass} onClick={() => handleSort("purpose")}>Finalidade <SortIcon col="purpose" /></TableHead>}
+                {visibleCols.has("address") && <TableHead className={thClass} onClick={() => handleSort("address")}>Endereço <SortIcon col="address" /></TableHead>}
+                {visibleCols.has("rent_value") && <TableHead>Aluguel</TableHead>}
+                {visibleCols.has("sale_value") && <TableHead>Venda</TableHead>}
+                {visibleCols.has("area_m2") && <TableHead>Área</TableHead>}
+                {visibleCols.has("status") && <TableHead className={thClass} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>}
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={clientId ? 5 : 6} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={visibleCols.size + 1} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={clientId ? 5 : 6} className="text-center py-12 text-muted-foreground text-sm">
+                <TableRow><TableCell colSpan={visibleCols.size + 1} className="text-center py-12 text-muted-foreground text-sm">
                   {clientId ? "Nenhum imóvel vinculado a este cliente." : "Nenhum imóvel cadastrado."}
                 </TableCell></TableRow>
               ) : (
                 filtered.map((p) => (
                   <TableRow key={p.id} className="border-border/40 hover:bg-muted/30 transition-colors">
-                    {!clientId && (
-                      <TableCell
-                        className="font-medium cursor-pointer hover:text-primary transition-colors"
-                        onClick={() => navigate(`/cadastros/clientes/${p.client_id}/imoveis`)}
-                      >
+                    {!clientId && visibleCols.has("client_name") && (
+                      <TableCell className="font-medium cursor-pointer hover:text-primary transition-colors" onClick={() => navigate(`/cadastros/clientes/${p.client_id}/imoveis`)}>
                         {p.client_name}
                       </TableCell>
                     )}
-                    <TableCell className="font-mono font-medium text-sm">{p.code}</TableCell>
-                    <TableCell className="hidden sm:table-cell text-muted-foreground text-sm capitalize">{p.purpose}</TableCell>
-                    <TableCell className="hidden lg:table-cell text-muted-foreground text-sm truncate max-w-[200px]">{p.address || "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant={statusVariant[p.status]} className="text-xs">{statusLabel[p.status]}</Badge>
-                    </TableCell>
+                    {visibleCols.has("code") && <TableCell className="font-mono font-medium text-sm">{p.code}</TableCell>}
+                    {visibleCols.has("purpose") && <TableCell className="text-muted-foreground text-sm capitalize">{p.purpose}</TableCell>}
+                    {visibleCols.has("address") && <TableCell className="text-muted-foreground text-sm truncate max-w-[200px]">{p.address || "—"}</TableCell>}
+                    {visibleCols.has("rent_value") && <TableCell className="text-muted-foreground text-sm font-mono">{p.rent_value ? `R$ ${p.rent_value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}</TableCell>}
+                    {visibleCols.has("sale_value") && <TableCell className="text-muted-foreground text-sm font-mono">{p.sale_value ? `R$ ${p.sale_value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}</TableCell>}
+                    {visibleCols.has("area_m2") && <TableCell className="text-muted-foreground text-sm">{p.area_m2 ? `${p.area_m2} m²` : "—"}</TableCell>}
+                    {visibleCols.has("status") && (
+                      <TableCell>
+                        <Badge variant={statusVariant[p.status]} className="text-xs">{statusLabel[p.status]}</Badge>
+                      </TableCell>
+                    )}
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>

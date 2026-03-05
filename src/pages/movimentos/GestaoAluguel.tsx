@@ -21,8 +21,9 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import {
-  Loader2, Plus, Search, Pencil, Trash2, ChevronDown, ChevronUp, FileText, CheckCircle2, Eye,
+  Loader2, Plus, Search, Pencil, Trash2, ChevronDown, ChevronUp, FileText, CheckCircle2, Eye, Filter,
 } from "lucide-react";
+import ColumnSelector, { ColumnDef } from "@/components/ColumnSelector";
 import { toast } from "sonner";
 import { maskCurrency, parseCurrency } from "@/lib/masks";
 import { format, addMonths, setDate, parseISO } from "date-fns";
@@ -64,6 +65,18 @@ interface Installment {
 
 type SortKey = "tenant_name" | "property_code" | "rent_value" | "start_date" | "due_day" | "status";
 type SortDir = "asc" | "desc";
+
+const CONTRACT_COLUMNS: ColumnDef[] = [
+  { key: "tenant_name", label: "Inquilino", defaultVisible: true },
+  { key: "property_code", label: "Imóvel", defaultVisible: true },
+  { key: "rent_value", label: "Valor", defaultVisible: true },
+  { key: "management_fee", label: "Taxa Admin", defaultVisible: false },
+  { key: "repasse", label: "Repasse", defaultVisible: false },
+  { key: "start_date", label: "Início", defaultVisible: true },
+  { key: "due_day", label: "Vencimento", defaultVisible: true },
+  { key: "duration_months", label: "Período", defaultVisible: false },
+  { key: "status", label: "Status", defaultVisible: true },
+];
 
 const STATUS_COLORS: Record<string, string> = {
   ativo: "default",
@@ -205,6 +218,19 @@ export default function GestaoAluguel() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Visible columns
+  const [visibleCols, setVisibleCols] = useState<Set<string>>(
+    new Set(CONTRACT_COLUMNS.filter((c) => c.defaultVisible !== false).map((c) => c.key))
+  );
+
+  // Extended filters for GestaoAluguel
+  const [filterTenant, setFilterTenant] = useState("");
+  const [filterProperty, setFilterProperty] = useState("");
+  const [filterStartFrom, setFilterStartFrom] = useState("");
+  const [filterStartTo, setFilterStartTo] = useState("");
+  const [filterDueDay, setFilterDueDay] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+
   // Delete
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Contract | null>(null);
@@ -291,9 +317,14 @@ export default function GestaoAluguel() {
       const q = search.toLowerCase();
       const name = c.tenants?.full_name?.toLowerCase() ?? "";
       const code = c.properties?.code?.toLowerCase() ?? "";
-      const match = name.includes(q) || code.includes(q);
+      const matchSearch = name.includes(q) || code.includes(q);
       const st = statusFilter === "todos" || c.status === statusFilter;
-      return match && st;
+      const matchTenant = !filterTenant || name.includes(filterTenant.toLowerCase());
+      const matchProp = !filterProperty || code.includes(filterProperty.toLowerCase());
+      const matchFrom = !filterStartFrom || c.start_date >= filterStartFrom;
+      const matchTo = !filterStartTo || c.start_date <= filterStartTo;
+      const matchDue = !filterDueDay || String(c.due_day) === filterDueDay;
+      return matchSearch && st && matchTenant && matchProp && matchFrom && matchTo && matchDue;
     });
     arr = [...arr].sort((a, b) => {
       let va = "", vb = "";
@@ -558,42 +589,83 @@ export default function GestaoAluguel() {
               <SelectItem value="cancelado">Cancelado</SelectItem>
             </SelectContent>
           </Select>
+          <Button variant="outline" size="sm" className="gap-2 h-9" onClick={() => setShowFilters((v) => !v)}>
+            <Filter className="h-4 w-4" />
+            Filtros
+          </Button>
+          <ColumnSelector columns={CONTRACT_COLUMNS} visible={visibleCols} onChange={setVisibleCols} />
         </div>
+
+        {showFilters && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 p-4 rounded-xl border border-border/40 bg-muted/20">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Inquilino</p>
+              <Input placeholder="Nome do inquilino" value={filterTenant} onChange={(e) => setFilterTenant(e.target.value)} className="h-8 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Imóvel</p>
+              <Input placeholder="Código do imóvel" value={filterProperty} onChange={(e) => setFilterProperty(e.target.value)} className="h-8 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Início de</p>
+              <Input type="date" value={filterStartFrom} onChange={(e) => setFilterStartFrom(e.target.value)} className="h-8 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Início até</p>
+              <Input type="date" value={filterStartTo} onChange={(e) => setFilterStartTo(e.target.value)} className="h-8 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Dia vencimento</p>
+              <Input type="number" min={1} max={31} placeholder="1–31" value={filterDueDay} onChange={(e) => setFilterDueDay(e.target.value)} className="h-8 text-sm" />
+            </div>
+            <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={() => { setFilterTenant(""); setFilterProperty(""); setFilterStartFrom(""); setFilterStartTo(""); setFilterDueDay(""); }}>
+              Limpar filtros
+            </Button>
+          </div>
+        )}
 
         <div className="card-premium rounded-xl overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow className="border-border/40">
-                <TableHead className={thClass} onClick={() => handleSort("tenant_name")}>Inquilino <SortIcon col="tenant_name" /></TableHead>
-                <TableHead className={`hidden sm:table-cell ${thClass}`} onClick={() => handleSort("property_code")}>Imóvel <SortIcon col="property_code" /></TableHead>
-                <TableHead className={`hidden md:table-cell ${thClass}`} onClick={() => handleSort("rent_value")}>Valor <SortIcon col="rent_value" /></TableHead>
-                <TableHead className={`hidden lg:table-cell ${thClass}`} onClick={() => handleSort("start_date")}>Início <SortIcon col="start_date" /></TableHead>
-                <TableHead className={`hidden lg:table-cell ${thClass}`} onClick={() => handleSort("due_day")}>Vencimento <SortIcon col="due_day" /></TableHead>
-                <TableHead className={thClass} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>
+                {visibleCols.has("tenant_name") && <TableHead className={thClass} onClick={() => handleSort("tenant_name")}>Inquilino <SortIcon col="tenant_name" /></TableHead>}
+                {visibleCols.has("property_code") && <TableHead className={thClass} onClick={() => handleSort("property_code")}>Imóvel <SortIcon col="property_code" /></TableHead>}
+                {visibleCols.has("rent_value") && <TableHead className={thClass} onClick={() => handleSort("rent_value")}>Valor <SortIcon col="rent_value" /></TableHead>}
+                {visibleCols.has("management_fee") && <TableHead>Taxa Admin</TableHead>}
+                {visibleCols.has("repasse") && <TableHead>Repasse</TableHead>}
+                {visibleCols.has("start_date") && <TableHead className={thClass} onClick={() => handleSort("start_date")}>Início <SortIcon col="start_date" /></TableHead>}
+                {visibleCols.has("due_day") && <TableHead className={thClass} onClick={() => handleSort("due_day")}>Vencimento <SortIcon col="due_day" /></TableHead>}
+                {visibleCols.has("duration_months") && <TableHead>Período</TableHead>}
+                {visibleCols.has("status") && <TableHead className={thClass} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>}
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={visibleCols.size + 1} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground text-sm">
+                <TableRow><TableCell colSpan={visibleCols.size + 1} className="text-center py-12 text-muted-foreground text-sm">
                   Nenhum contrato encontrado.
                 </TableCell></TableRow>
               ) : filtered.map((c) => (
                 <TableRow key={c.id} className="border-border/40 hover:bg-muted/30 transition-colors">
-                  <TableCell className="font-medium">{c.tenants?.full_name ?? "—"}</TableCell>
-                  <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
-                    {c.properties?.code ?? "—"}{c.properties?.address ? ` – ${c.properties.address.slice(0, 25)}` : ""}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-sm font-mono">R$ {formatMoney(c.rent_value)}</TableCell>
-                  <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
-                    {format(parseISO(c.start_date), "dd/MM/yyyy")}
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">Dia {c.due_day}</TableCell>
-                  <TableCell>
-                    <Badge variant={(STATUS_COLORS[c.status] as any) ?? "outline"} className="text-xs capitalize">{c.status}</Badge>
-                  </TableCell>
+                  {visibleCols.has("tenant_name") && <TableCell className="font-medium">{c.tenants?.full_name ?? "—"}</TableCell>}
+                  {visibleCols.has("property_code") && (
+                    <TableCell className="text-muted-foreground text-sm">
+                      {c.properties?.code ?? "—"}{c.properties?.address ? ` – ${c.properties.address.slice(0, 25)}` : ""}
+                    </TableCell>
+                  )}
+                  {visibleCols.has("rent_value") && <TableCell className="text-sm font-mono">R$ {formatMoney(c.rent_value)}</TableCell>}
+                  {visibleCols.has("management_fee") && <TableCell className="text-sm font-mono text-muted-foreground">{c.management_fee_percent}% · R$ {formatMoney(c.management_fee_value ?? 0)}</TableCell>}
+                  {visibleCols.has("repasse") && <TableCell className="text-sm font-mono text-muted-foreground">R$ {formatMoney(c.repasse_value ?? 0)}</TableCell>}
+                  {visibleCols.has("start_date") && <TableCell className="text-muted-foreground text-sm">{format(parseISO(c.start_date), "dd/MM/yyyy")}</TableCell>}
+                  {visibleCols.has("due_day") && <TableCell className="text-muted-foreground text-sm">Dia {c.due_day}</TableCell>}
+                  {visibleCols.has("duration_months") && <TableCell className="text-muted-foreground text-sm">{c.duration_months} meses</TableCell>}
+                  {visibleCols.has("status") && (
+                    <TableCell>
+                      <Badge variant={(STATUS_COLORS[c.status] as any) ?? "outline"} className="text-xs capitalize">{c.status}</Badge>
+                    </TableCell>
+                  )}
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8" title="Visualizar" onClick={() => openView(c)}><Eye className="h-4 w-4" /></Button>
