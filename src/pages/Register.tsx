@@ -109,24 +109,37 @@ export default function Register() {
       const successUrl = `${origin}/register?session_id={CHECKOUT_SESSION_ID}`;
       const cancelUrl = `${origin}/register?canceled=true`;
 
-      const { data, error: fnError } = await supabase.functions.invoke("create-checkout", {
-        body: {
-          email: form.email,
-          price_id: PRICE_ID,
-          success_url: successUrl,
-          cancel_url: cancelUrl,
+      const BILLING_URL = "https://rdkrgtkuevzlvxzsyzrb.supabase.co/functions/v1/billing-core";
+      const BILLING_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJka3JndGt1ZXZ6bHZ4enN5enJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MjQwMTEsImV4cCI6MjA4ODMwMDAxMX0.idbJkgu8ZLJhRzJUyfczfrSKgjTEksR_DMB-0IGaav4";
+
+      const res = await fetch(`${BILLING_URL}/stripe/create-checkout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: BILLING_ANON,
+          Authorization: `Bearer ${BILLING_ANON}`,
         },
+        body: JSON.stringify({
+          email: form.email,
+          priceId: PRICE_ID,
+          successUrl,
+          cancelUrl,
+          saasKey: "verom",
+        }),
       });
 
-      if (fnError || data?.error) {
+      const data = await res.json();
+
+      if (!res.ok || data?.error) {
         localStorage.removeItem(REGISTER_PENDING_KEY);
-        setError(data?.error || fnError?.message || "Erro ao iniciar checkout.");
+        setError(data?.error || "Erro ao iniciar checkout.");
         setLoading(false);
         return;
       }
 
-      if (data?.url) {
-        window.location.href = data.url;
+      const checkoutUrl = data?.url || data?.checkout_url || data?.sessionUrl || data?.session_url || data?.checkoutUrl;
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
       } else {
         localStorage.removeItem(REGISTER_PENDING_KEY);
         setError("URL de checkout não retornada. Tente novamente.");
