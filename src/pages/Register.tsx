@@ -120,11 +120,11 @@ export default function Register() {
           Authorization: `Bearer ${BILLING_ANON}`,
         },
         body: JSON.stringify({
-          email: form.email,
-          priceId: PRICE_ID,
-          successUrl,
-          cancelUrl,
-          saasKey: "verom",
+          customer_email: form.email,
+          price_id: PRICE_ID,
+          success_url: successUrl,
+          cancel_url: cancelUrl,
+          saas_key: "verom",
         }),
       });
 
