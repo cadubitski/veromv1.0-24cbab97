@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCNPJ, validateCNPJ } from "@/lib/cnpj";
-import { supabase } from "@/integrations/supabase/client";
 
 const PRICE_ID = "price_1T6XRS8rgGCdKgUCkAbD6Bav";
 const REGISTER_PENDING_KEY = "verom_register_pending";
@@ -35,8 +34,12 @@ export default function Register() {
 
   // On mount, restore form data or complete registration
   useEffect(() => {
-    const sessionId = searchParams.get("session_id");
+    // Read directly from window.location to avoid React Router timing issues
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get("session_id");
     const rawPending = localStorage.getItem(REGISTER_PENDING_KEY);
+
+    console.log("[Register] sessionId:", sessionId, "| hasPending:", !!rawPending);
 
     if (rawPending) {
       try {
@@ -53,12 +56,17 @@ export default function Register() {
         }));
 
         if (sessionId) {
+          console.log("[Register] Starting completeRegistration with session:", sessionId);
           setStep("completing");
           completeRegistration(pendingData);
         }
       } catch {
         localStorage.removeItem(REGISTER_PENDING_KEY);
       }
+    } else if (sessionId) {
+      // session_id present but no pending data - show error
+      console.warn("[Register] session_id present but no pending registration data in localStorage");
+      setError("Dados de cadastro não encontrados. Por favor, preencha o formulário novamente.");
     }
   }, []);
 
@@ -161,12 +169,30 @@ export default function Register() {
   }) => {
     setError("");
     try {
-      const { data, error: fnError } = await supabase.functions.invoke("register", {
-        body: pendingData,
+      console.log("[Register] Invoking register function with data:", { ...pendingData, password: "***" });
+
+      // Use direct fetch to ensure correct URL in all environments (Vercel + Lovable preview)
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const functionUrl = `${supabaseUrl}/functions/v1/register`;
+
+      console.log("[Register] Function URL:", functionUrl);
+
+      const res = await fetch(functionUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": supabaseKey,
+          "Authorization": `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify(pendingData),
       });
 
-      if (fnError || data?.error) {
-        setError(data?.error || fnError?.message || "Erro ao criar conta.");
+      const data = await res.json();
+      console.log("[Register] Function response:", res.status, data);
+
+      if (!res.ok || data?.error) {
+        setError(data?.error || "Erro ao criar conta. Status: " + res.status);
         setStep("form");
         return;
       }
@@ -182,6 +208,7 @@ export default function Register() {
         navigate("/login");
       }
     } catch (err: any) {
+      console.error("[Register] Error completing registration:", err);
       setError(err.message || "Erro inesperado ao finalizar cadastro.");
       setStep("form");
     }
