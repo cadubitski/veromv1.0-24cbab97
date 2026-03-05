@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, Search, Eye, Pencil, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { maskCPF, maskCNPJ, maskPhone } from "@/lib/masks";
+import ColumnSelector, { ColumnDef } from "@/components/ColumnSelector";
 
 interface Tenant {
   id: string;
@@ -41,6 +42,17 @@ interface Tenant {
 
 type SortKey = "full_name" | "document" | "phone" | "status";
 type SortDir = "asc" | "desc";
+
+const TENANT_COLUMNS: ColumnDef[] = [
+  { key: "full_name", label: "Nome", defaultVisible: true },
+  { key: "person_type", label: "Tipo", defaultVisible: false },
+  { key: "document", label: "Documento", defaultVisible: true },
+  { key: "phone", label: "Telefone", defaultVisible: true },
+  { key: "whatsapp", label: "WhatsApp", defaultVisible: false },
+  { key: "email", label: "E-mail", defaultVisible: false },
+  { key: "address", label: "Endereço", defaultVisible: false },
+  { key: "status", label: "Status", defaultVisible: true },
+];
 
 const EMPTY_FORM = {
   person_type: "fisica" as "fisica" | "juridica",
@@ -73,6 +85,9 @@ export default function Inquilinos() {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [blockMessage, setBlockMessage] = useState<string | null>(null);
+  const [visibleCols, setVisibleCols] = useState<Set<string>>(
+    new Set(TENANT_COLUMNS.filter((c) => c.defaultVisible !== false).map((c) => c.key))
+  );
 
   const load = async () => {
     setLoading(true);
@@ -182,36 +197,47 @@ export default function Inquilinos() {
               <SelectItem value="inativo">Inativo</SelectItem>
             </SelectContent>
           </Select>
+          <ColumnSelector columns={TENANT_COLUMNS} visible={visibleCols} onChange={setVisibleCols} />
         </div>
 
         <div className="card-premium rounded-xl overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow className="border-border/40">
-                <TableHead className={thClass} onClick={() => handleSort("full_name")}>Nome <SortIcon col="full_name" /></TableHead>
-                <TableHead className={`hidden md:table-cell ${thClass}`} onClick={() => handleSort("document")}>Documento <SortIcon col="document" /></TableHead>
-                <TableHead className={`hidden sm:table-cell ${thClass}`} onClick={() => handleSort("phone")}>Telefone <SortIcon col="phone" /></TableHead>
-                <TableHead className={thClass} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>
+                {visibleCols.has("full_name") && <TableHead className={thClass} onClick={() => handleSort("full_name")}>Nome <SortIcon col="full_name" /></TableHead>}
+                {visibleCols.has("person_type") && <TableHead>Tipo</TableHead>}
+                {visibleCols.has("document") && <TableHead className={thClass} onClick={() => handleSort("document")}>Documento <SortIcon col="document" /></TableHead>}
+                {visibleCols.has("phone") && <TableHead className={thClass} onClick={() => handleSort("phone")}>Telefone <SortIcon col="phone" /></TableHead>}
+                {visibleCols.has("whatsapp") && <TableHead>WhatsApp</TableHead>}
+                {visibleCols.has("email") && <TableHead>E-mail</TableHead>}
+                {visibleCols.has("address") && <TableHead>Endereço</TableHead>}
+                {visibleCols.has("status") && <TableHead className={thClass} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>}
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={visibleCols.size + 1} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-12 text-muted-foreground text-sm">
+                <TableRow><TableCell colSpan={visibleCols.size + 1} className="text-center py-12 text-muted-foreground text-sm">
                   {search || statusFilter !== "todos" ? "Nenhum inquilino encontrado com os filtros aplicados." : "Nenhum inquilino cadastrado ainda."}
                 </TableCell></TableRow>
               ) : filtered.map((t) => (
                 <TableRow key={t.id} className="border-border/40 hover:bg-muted/30 transition-colors">
-                  <TableCell className="font-medium">{t.full_name}</TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground text-sm font-mono">{t.document || "—"}</TableCell>
-                  <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">{t.phone || "—"}</TableCell>
-                  <TableCell>
-                    <Badge variant={t.status === "ativo" ? "default" : "secondary"} className="text-xs">
-                      {t.status === "ativo" ? "Ativo" : "Inativo"}
-                    </Badge>
-                  </TableCell>
+                  {visibleCols.has("full_name") && <TableCell className="font-medium">{t.full_name}</TableCell>}
+                  {visibleCols.has("person_type") && <TableCell className="text-muted-foreground text-sm">{t.person_type === "fisica" ? "Pessoa Física" : "Pessoa Jurídica"}</TableCell>}
+                  {visibleCols.has("document") && <TableCell className="text-muted-foreground text-sm font-mono">{t.document || "—"}</TableCell>}
+                  {visibleCols.has("phone") && <TableCell className="text-muted-foreground text-sm">{t.phone || "—"}</TableCell>}
+                  {visibleCols.has("whatsapp") && <TableCell className="text-muted-foreground text-sm">{t.whatsapp || "—"}</TableCell>}
+                  {visibleCols.has("email") && <TableCell className="text-muted-foreground text-sm">{t.email || "—"}</TableCell>}
+                  {visibleCols.has("address") && <TableCell className="text-muted-foreground text-sm truncate max-w-[160px]">{t.address || "—"}</TableCell>}
+                  {visibleCols.has("status") && (
+                    <TableCell>
+                      <Badge variant={t.status === "ativo" ? "default" : "secondary"} className="text-xs">
+                        {t.status === "ativo" ? "Ativo" : "Inativo"}
+                      </Badge>
+                    </TableCell>
+                  )}
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openView(t)}><Eye className="h-4 w-4" /></Button>
