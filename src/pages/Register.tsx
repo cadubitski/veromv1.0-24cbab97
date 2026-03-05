@@ -172,8 +172,9 @@ export default function Register() {
       console.log("[Register] Invoking register function with data:", { ...pendingData, password: "***" });
 
       // Use direct fetch to ensure correct URL in all environments (Vercel + Lovable preview)
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      // Fallback to hardcoded URL in case env vars are missing in Vercel build
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://xdwtgwmkigffzmuwknqm.supabase.co";
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhkd3Rnd21raWdmZnptdXdrbnFtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2MzE4NzYsImV4cCI6MjA4ODIwNzg3Nn0.f4h_lTilh8WCG9PEMVVDR93gubca_LRUokVlKaa5RAo";
       const functionUrl = `${supabaseUrl}/functions/v1/register`;
 
       console.log("[Register] Function URL:", functionUrl);
