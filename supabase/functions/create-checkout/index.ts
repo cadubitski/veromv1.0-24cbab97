@@ -4,9 +4,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const BILLING_URL = "https://idrjkzqgmvooqiegandx.supabase.co";
+const BILLING_URL = "https://rdkrgtkuevzlvxzsyzrb.supabase.co/functions/v1/billing-core";
 const BILLING_ANON =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkcmprenFnbXZvb3FpZWdhbmR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgwMzI1ODAsImV4cCI6MjAyMzYwODU4MH0.kzrEyOz3JBrSzJHjSFDrN8cqMmjcxAl1MZnfTy2JL8s";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJka3JndGt1ZXZ6bHZ4enN5enJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MjQwMTEsImV4cCI6MjA4ODMwMDAxMX0.idbJkgu8ZLJhRzJUyfczfrSKgjTEksR_DMB-0IGaav4";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const res = await fetch(`${BILLING_URL}/functions/v1/billing-core/stripe/create-checkout`, {
+    const res = await fetch(`${BILLING_URL}/stripe/create-checkout`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
