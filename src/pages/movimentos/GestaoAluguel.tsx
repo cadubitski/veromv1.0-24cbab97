@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,15 +21,14 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import {
-  Loader2, Plus, Search, Pencil, Trash2, ChevronDown, ChevronUp, FileText, CheckCircle2,
+  Loader2, Plus, Search, Pencil, Trash2, ChevronDown, ChevronUp, FileText, CheckCircle2, Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { maskCurrency, parseCurrency } from "@/lib/masks";
 import { format, addMonths, setDate, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
 
 interface Tenant { id: string; full_name: string; }
-interface Property { id: string; code: string; address: string | null; }
+interface Property { id: string; code: string; address: string | null; client_name?: string; }
 
 interface Contract {
   id: string;
@@ -41,9 +40,12 @@ interface Contract {
   due_day: number;
   duration_months: number;
   status: string;
+  management_fee_percent: number;
+  management_fee_value: number;
+  repasse_value: number;
   created_at: string;
   tenants?: Tenant;
-  properties?: Property;
+  properties?: Property & { clients?: { full_name: string } };
 }
 
 interface Installment {
@@ -53,9 +55,15 @@ interface Installment {
   competence: string;
   due_date: string;
   value: number;
+  management_fee_percent: number;
+  management_fee_value: number;
+  repasse_value: number;
   status: string;
   paid_at: string | null;
 }
+
+type SortKey = "tenant_name" | "property_code" | "rent_value" | "start_date" | "due_day" | "status";
+type SortDir = "asc" | "desc";
 
 const STATUS_COLORS: Record<string, string> = {
   ativo: "default",
@@ -79,6 +87,93 @@ function formatMoney(v: number) {
   return v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// Searchable select component
+function SearchableSelect({
+  placeholder,
+  value,
+  onChange,
+  items,
+  renderItem,
+  getLabel,
+}: {
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+  items: { id: string; label: string; sublabel?: string }[];
+  renderItem?: (item: { id: string; label: string; sublabel?: string }) => React.ReactNode;
+  getLabel: (id: string) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filtered = items.filter(
+    (i) =>
+      i.label.toLowerCase().includes(q.toLowerCase()) ||
+      (i.sublabel ?? "").toLowerCase().includes(q.toLowerCase())
+  );
+
+  const selectedLabel = value ? getLabel(value) : "";
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => { setOpen((o) => !o); setQ(""); }}
+        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+      >
+        <span className={selectedLabel ? "text-foreground" : "text-muted-foreground"}>
+          {selectedLabel || placeholder}
+        </span>
+        <ChevronDown className="h-4 w-4 opacity-50" />
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg">
+          <div className="p-2 border-b border-border">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                autoFocus
+                className="w-full rounded-sm bg-transparent pl-7 pr-2 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
+                placeholder="Pesquisar..."
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+            </div>
+          </div>
+          <ul className="max-h-52 overflow-y-auto py-1">
+            {filtered.length === 0 && (
+              <li className="px-3 py-2 text-sm text-muted-foreground">Nenhum resultado.</li>
+            )}
+            {filtered.map((item) => (
+              <li
+                key={item.id}
+                className={`px-3 py-2 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors ${item.id === value ? "bg-primary/10 text-primary" : ""}`}
+                onClick={() => { onChange(item.id); setOpen(false); setQ(""); }}
+              >
+                {renderItem ? renderItem(item) : (
+                  <div>
+                    <div>{item.label}</div>
+                    {item.sublabel && <div className="text-xs text-muted-foreground">{item.sublabel}</div>}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function GestaoAluguel() {
   const { company } = useAuth();
   const [searchParams] = useSearchParams();
@@ -87,10 +182,14 @@ export default function GestaoAluguel() {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>(filterParam === "vencidos" || filterParam === "proximos" ? "todos" : "todos");
+  const [statusFilter, setStatusFilter] = useState<string>("todos");
+  const [sortKey, setSortKey] = useState<SortKey>("tenant_name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   // Contract dialog
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [viewContract, setViewContract] = useState<Contract | null>(null);
   const [editContract, setEditContract] = useState<Contract | null>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
@@ -101,6 +200,7 @@ export default function GestaoAluguel() {
     start_date: "",
     due_day: "10",
     duration_months: "12",
+    management_fee_percent: "0",
   });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -118,28 +218,50 @@ export default function GestaoAluguel() {
   const [loadingInst, setLoadingInst] = useState(false);
   const [paidDateInputs, setPaidDateInputs] = useState<Record<string, string>>({});
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
+  const [editingInstValue, setEditingInstValue] = useState<Record<string, string>>({});
+  const [savingInstValue, setSavingInstValue] = useState<string | null>(null);
 
   const loadContracts = async () => {
     setLoading(true);
     const { data } = await supabase
       .from("rental_contracts")
-      .select("*, tenants(id, full_name), properties(id, code, address)");
+      .select("*, tenants(id, full_name), properties(id, code, address, clients(full_name))");
     setContracts((data as Contract[]) ?? []);
     setLoading(false);
   };
 
-  const loadDropdowns = async () => {
+  const loadDropdowns = async (contractId?: string) => {
     const [t, p] = await Promise.all([
       supabase.from("tenants").select("id, full_name").eq("status", "ativo"),
-      supabase.from("properties").select("id, code, address").eq("status", "disponivel"),
+      supabase.from("properties").select("id, code, address, clients(full_name)"),
     ]);
+
+    // Get active contracts to know which properties are taken
+    const { data: activeContracts } = await supabase
+      .from("rental_contracts")
+      .select("property_id")
+      .eq("status", "ativo");
+
+    const takenIds = new Set((activeContracts ?? []).map((c) => c.property_id));
+    // If editing, allow the current property
+    if (contractId) {
+      const current = contracts.find((c) => c.id === contractId);
+      if (current) takenIds.delete(current.property_id);
+    }
+
+    const allProps = ((p.data ?? []) as any[]).map((prop) => ({
+      id: prop.id,
+      code: prop.code,
+      address: prop.address,
+      client_name: prop.clients?.full_name ?? "",
+    }));
+
     setTenants((t.data as Tenant[]) ?? []);
-    setProperties((p.data as Property[]) ?? []);
+    setProperties(allProps.filter((pp) => !takenIds.has(pp.id)));
   };
 
   useEffect(() => { loadContracts(); }, []);
 
-  // Compute "atrasado" status client-side for display
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -150,8 +272,22 @@ export default function GestaoAluguel() {
     return "em_aberto";
   };
 
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ChevronUp className="h-3 w-3 opacity-20 inline ml-1" />;
+    return sortDir === "asc"
+      ? <ChevronUp className="h-3 w-3 opacity-80 inline ml-1" />
+      : <ChevronDown className="h-3 w-3 opacity-80 inline ml-1" />;
+  };
+
+  const thClass = "cursor-pointer select-none hover:text-foreground transition-colors";
+
   const filtered = useMemo(() => {
-    return contracts.filter((c) => {
+    let arr = contracts.filter((c) => {
       const q = search.toLowerCase();
       const name = c.tenants?.full_name?.toLowerCase() ?? "";
       const code = c.properties?.code?.toLowerCase() ?? "";
@@ -159,18 +295,29 @@ export default function GestaoAluguel() {
       const st = statusFilter === "todos" || c.status === statusFilter;
       return match && st;
     });
-  }, [contracts, search, statusFilter]);
+    arr = [...arr].sort((a, b) => {
+      let va = "", vb = "";
+      if (sortKey === "tenant_name") { va = a.tenants?.full_name ?? ""; vb = b.tenants?.full_name ?? ""; }
+      else if (sortKey === "property_code") { va = a.properties?.code ?? ""; vb = b.properties?.code ?? ""; }
+      else if (sortKey === "rent_value") { return sortDir === "asc" ? a.rent_value - b.rent_value : b.rent_value - a.rent_value; }
+      else if (sortKey === "start_date") { va = a.start_date; vb = b.start_date; }
+      else if (sortKey === "due_day") { return sortDir === "asc" ? a.due_day - b.due_day : b.due_day - a.due_day; }
+      else if (sortKey === "status") { va = a.status; vb = b.status; }
+      return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+    return arr;
+  }, [contracts, search, statusFilter, sortKey, sortDir]);
 
   const openCreate = async () => {
     await loadDropdowns();
     setEditContract(null);
-    setForm({ tenant_id: "", property_id: "", rent_value: "", start_date: "", due_day: "10", duration_months: "12" });
+    setForm({ tenant_id: "", property_id: "", rent_value: "", start_date: "", due_day: "10", duration_months: "12", management_fee_percent: "0" });
     setFormError(null);
     setDialogOpen(true);
   };
 
   const openEdit = async (c: Contract) => {
-    await loadDropdowns();
+    await loadDropdowns(c.id);
     setEditContract(c);
     setForm({
       tenant_id: c.tenant_id,
@@ -179,10 +326,19 @@ export default function GestaoAluguel() {
       start_date: c.start_date,
       due_day: String(c.due_day),
       duration_months: String(c.duration_months),
+      management_fee_percent: String(c.management_fee_percent ?? 0),
     });
     setFormError(null);
     setDialogOpen(true);
   };
+
+  const openView = (c: Contract) => { setViewContract(c); setViewDialogOpen(true); };
+
+  // Computed fee values for form preview
+  const feePercent = parseFloat(form.management_fee_percent) || 0;
+  const rentValPreview = parseCurrency(form.rent_value) ?? 0;
+  const feeValuePreview = rentValPreview * feePercent / 100;
+  const repassePreview = rentValPreview - feeValuePreview;
 
   const handleSave = async () => {
     if (!form.tenant_id || !form.property_id || !form.rent_value || !form.start_date) {
@@ -196,21 +352,51 @@ export default function GestaoAluguel() {
     if (!dueDay || dueDay < 1 || dueDay > 31) { setFormError("Dia de vencimento deve ser entre 1 e 31."); return; }
     if (!durationMonths || durationMonths < 1) { setFormError("Período inválido."); return; }
     if (!company?.id) return;
+    const feePercent = parseFloat(form.management_fee_percent) || 0;
 
     setSaving(true); setFormError(null);
     try {
       let contractId: string;
       if (editContract) {
+        const oldDueDay = editContract.due_day;
         const { error: err } = await supabase.from("rental_contracts").update({
           tenant_id: form.tenant_id, property_id: form.property_id,
           rent_value: rentVal, start_date: form.start_date,
           due_day: dueDay, duration_months: durationMonths,
+          management_fee_percent: feePercent,
           updated_at: new Date().toISOString(),
         }).eq("id", editContract.id);
         if (err) throw err;
         contractId = editContract.id;
+
+        // If due_day changed, update all unpaid installments
+        if (dueDay !== oldDueDay) {
+          const { data: unpaid } = await supabase.from("rental_installments")
+            .select("id, due_date")
+            .eq("contract_id", contractId)
+            .neq("status", "pago");
+          if (unpaid && unpaid.length > 0) {
+            const updates = unpaid.map((inst: any) => {
+              const dt = parseISO(inst.due_date);
+              const lastDay = new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
+              const newDay = Math.min(dueDay, lastDay);
+              return supabase.from("rental_installments").update({
+                due_date: format(setDate(dt, newDay), "yyyy-MM-dd"),
+                updated_at: new Date().toISOString(),
+              }).eq("id", inst.id);
+            });
+            await Promise.all(updates);
+          }
+        }
         toast.success("Contrato atualizado.");
       } else {
+        // Check property not already in active contract
+        const { count: taken } = await supabase.from("rental_contracts")
+          .select("id", { count: "exact", head: true })
+          .eq("property_id", form.property_id)
+          .eq("status", "ativo");
+        if ((taken ?? 0) > 0) { setFormError("Este imóvel já possui um contrato ativo."); setSaving(false); return; }
+
         const { data, error: err } = await supabase.from("rental_contracts").insert({
           company_id: company.id,
           tenant_id: form.tenant_id,
@@ -219,10 +405,14 @@ export default function GestaoAluguel() {
           start_date: form.start_date,
           due_day: dueDay,
           duration_months: durationMonths,
+          management_fee_percent: feePercent,
           status: "ativo",
         }).select("id").single();
         if (err) throw err;
         contractId = data.id;
+
+        // Update property status to "alugado"
+        await supabase.from("properties").update({ status: "alugado" }).eq("id", form.property_id);
 
         // Generate installments
         const startDate = parseISO(form.start_date);
@@ -233,7 +423,6 @@ export default function GestaoAluguel() {
           try {
             dueDate = setDate(monthDate, dueDay);
           } catch {
-            // If day > last day of month, use last day
             const lastDay = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
             dueDate = setDate(monthDate, Math.min(dueDay, lastDay));
           }
@@ -244,6 +433,7 @@ export default function GestaoAluguel() {
             competence,
             due_date: format(dueDate, "yyyy-MM-dd"),
             value: rentVal,
+            management_fee_percent: feePercent,
             status: "em_aberto",
           });
         }
@@ -273,9 +463,21 @@ export default function GestaoAluguel() {
       }
       const { error: err } = await supabase.from("rental_contracts").delete().eq("id", deleteTarget.id);
       if (err) throw err;
+      // Revert property status to disponivel
+      await supabase.from("properties").update({ status: "disponivel" }).eq("id", deleteTarget.property_id);
       toast.success("Contrato excluído."); setDeleteDialogOpen(false); loadContracts();
     } catch (e: any) { setBlockMessage(e.message); }
     finally { setDeleting(false); }
+  };
+
+  const handleChangeStatus = async (c: Contract, newStatus: string) => {
+    await supabase.from("rental_contracts").update({ status: newStatus }).eq("id", c.id);
+    if (newStatus !== "ativo") {
+      // Revert property
+      await supabase.from("properties").update({ status: "disponivel" }).eq("id", c.property_id);
+    }
+    loadContracts();
+    toast.success("Status do contrato atualizado.");
   };
 
   const openManagement = async (c: Contract) => {
@@ -284,6 +486,7 @@ export default function GestaoAluguel() {
     setLoadingInst(true);
     const { data } = await supabase.from("rental_installments").select("*").eq("contract_id", c.id).order("due_date");
     setInstallments((data as Installment[]) ?? []);
+    setEditingInstValue({});
     setLoadingInst(false);
   };
 
@@ -300,6 +503,35 @@ export default function GestaoAluguel() {
     }
     setMarkingPaid(null);
   };
+
+  const saveInstValue = async (inst: Installment) => {
+    const newVal = parseCurrency(editingInstValue[inst.id]);
+    if (!newVal || newVal <= 0) { toast.error("Valor inválido."); return; }
+    setSavingInstValue(inst.id);
+    const feeP = inst.management_fee_percent ?? 0;
+    const { error: err } = await supabase.from("rental_installments").update({
+      value: newVal,
+      updated_at: new Date().toISOString(),
+    }).eq("id", inst.id);
+    if (err) { toast.error("Erro ao atualizar valor."); }
+    else {
+      toast.success("Valor atualizado.");
+      setInstallments((prev) => prev.map((i) => i.id === inst.id ? {
+        ...i, value: newVal,
+        management_fee_value: newVal * feeP / 100,
+        repasse_value: newVal - newVal * feeP / 100,
+      } : i));
+      setEditingInstValue((p) => { const n = { ...p }; delete n[inst.id]; return n; });
+    }
+    setSavingInstValue(null);
+  };
+
+  const tenantItems = tenants.map((t) => ({ id: t.id, label: t.full_name }));
+  const propertyItems = properties.map((p) => ({
+    id: p.id,
+    label: p.code + (p.address ? ` – ${p.address.slice(0, 30)}` : ""),
+    sublabel: p.client_name ? `Proprietário: ${p.client_name}` : "",
+  }));
 
   return (
     <DashboardLayout>
@@ -332,36 +564,39 @@ export default function GestaoAluguel() {
           <Table>
             <TableHeader>
               <TableRow className="border-border/40">
-                <TableHead>Inquilino</TableHead>
-                <TableHead className="hidden sm:table-cell">Imóvel</TableHead>
-                <TableHead className="hidden md:table-cell">Valor</TableHead>
-                <TableHead className="hidden lg:table-cell">Início</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className={thClass} onClick={() => handleSort("tenant_name")}>Inquilino <SortIcon col="tenant_name" /></TableHead>
+                <TableHead className={`hidden sm:table-cell ${thClass}`} onClick={() => handleSort("property_code")}>Imóvel <SortIcon col="property_code" /></TableHead>
+                <TableHead className={`hidden md:table-cell ${thClass}`} onClick={() => handleSort("rent_value")}>Valor <SortIcon col="rent_value" /></TableHead>
+                <TableHead className={`hidden lg:table-cell ${thClass}`} onClick={() => handleSort("start_date")}>Início <SortIcon col="start_date" /></TableHead>
+                <TableHead className={`hidden lg:table-cell ${thClass}`} onClick={() => handleSort("due_day")}>Vencimento <SortIcon col="due_day" /></TableHead>
+                <TableHead className={thClass} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground text-sm">
+                <TableRow><TableCell colSpan={7} className="text-center py-12 text-muted-foreground text-sm">
                   Nenhum contrato encontrado.
                 </TableCell></TableRow>
               ) : filtered.map((c) => (
                 <TableRow key={c.id} className="border-border/40 hover:bg-muted/30 transition-colors">
                   <TableCell className="font-medium">{c.tenants?.full_name ?? "—"}</TableCell>
                   <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
-                    {c.properties?.code ?? "—"}{c.properties?.address ? ` – ${c.properties.address.slice(0, 30)}...` : ""}
+                    {c.properties?.code ?? "—"}{c.properties?.address ? ` – ${c.properties.address.slice(0, 25)}` : ""}
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-sm font-mono">R$ {formatMoney(c.rent_value)}</TableCell>
                   <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
                     {format(parseISO(c.start_date), "dd/MM/yyyy")}
                   </TableCell>
+                  <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">Dia {c.due_day}</TableCell>
                   <TableCell>
                     <Badge variant={(STATUS_COLORS[c.status] as any) ?? "outline"} className="text-xs capitalize">{c.status}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Visualizar" onClick={() => openView(c)}><Eye className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8" title="Gerenciar parcelas" onClick={() => openManagement(c)}><FileText className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => openDelete(c)}><Trash2 className="h-4 w-4" /></Button>
@@ -374,31 +609,67 @@ export default function GestaoAluguel() {
         </div>
       </div>
 
+      {/* View Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Detalhes do Contrato</DialogTitle></DialogHeader>
+          {viewContract && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div><p className="text-muted-foreground text-xs">Inquilino</p><p className="font-medium">{viewContract.tenants?.full_name ?? "—"}</p></div>
+                <div><p className="text-muted-foreground text-xs">Imóvel</p><p className="font-medium">{viewContract.properties?.code ?? "—"}</p></div>
+                <div><p className="text-muted-foreground text-xs">Endereço</p><p>{viewContract.properties?.address ?? "—"}</p></div>
+                <div><p className="text-muted-foreground text-xs">Proprietário</p><p>{(viewContract.properties as any)?.clients?.full_name ?? "—"}</p></div>
+                <div><p className="text-muted-foreground text-xs">Valor aluguel</p><p className="font-mono">R$ {formatMoney(viewContract.rent_value)}</p></div>
+                <div><p className="text-muted-foreground text-xs">Início</p><p>{format(parseISO(viewContract.start_date), "dd/MM/yyyy")}</p></div>
+                <div><p className="text-muted-foreground text-xs">Vencimento</p><p>Dia {viewContract.due_day}</p></div>
+                <div><p className="text-muted-foreground text-xs">Período</p><p>{viewContract.duration_months} meses</p></div>
+                <div><p className="text-muted-foreground text-xs">Taxa admin (%)</p><p>{viewContract.management_fee_percent ?? 0}%</p></div>
+                <div><p className="text-muted-foreground text-xs">Valor admin</p><p className="font-mono">R$ {formatMoney(viewContract.management_fee_value ?? 0)}</p></div>
+                <div><p className="text-muted-foreground text-xs">Valor repasse</p><p className="font-mono">R$ {formatMoney(viewContract.repasse_value ?? 0)}</p></div>
+                <div><p className="text-muted-foreground text-xs">Status</p><Badge variant={(STATUS_COLORS[viewContract.status] as any) ?? "outline"} className="text-xs capitalize">{viewContract.status}</Badge></div>
+              </div>
+              {viewContract.status === "ativo" && (
+                <div className="flex gap-2 pt-2 border-t border-border/40">
+                  <Button size="sm" variant="outline" onClick={() => { handleChangeStatus(viewContract, "encerrado"); setViewDialogOpen(false); }}>Encerrar contrato</Button>
+                  <Button size="sm" variant="outline" onClick={() => { handleChangeStatus(viewContract, "cancelado"); setViewDialogOpen(false); }}>Cancelar contrato</Button>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Contract Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg flex flex-col max-h-[90vh]">
           <DialogHeader className="shrink-0">
             <DialogTitle>{editContract ? "Editar contrato" : "Novo contrato de aluguel"}</DialogTitle>
-            <DialogDescription>{editContract ? "Atualize os dados do contrato." : "Preencha os dados para criar um novo contrato. As parcelas serão geradas automaticamente."}</DialogDescription>
+            <DialogDescription>{editContract ? "Atualize os dados do contrato." : "Preencha os dados para criar um novo contrato."}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2 overflow-y-auto flex-1 pr-1">
             <div className="space-y-2">
               <FieldLabel label="Inquilino" tooltip="Selecione o inquilino que irá locar o imóvel." required />
-              <Select value={form.tenant_id} onValueChange={(v) => setForm((p) => ({ ...p, tenant_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="Selecione o inquilino..." /></SelectTrigger>
-                <SelectContent>
-                  {tenants.map((t) => <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                placeholder="Selecione o inquilino..."
+                value={form.tenant_id}
+                onChange={(v) => setForm((p) => ({ ...p, tenant_id: v }))}
+                items={tenantItems}
+                getLabel={(id) => tenants.find((t) => t.id === id)?.full_name ?? ""}
+              />
             </div>
             <div className="space-y-2">
-              <FieldLabel label="Imóvel" tooltip="Selecione o imóvel disponível para locação." required />
-              <Select value={form.property_id} onValueChange={(v) => setForm((p) => ({ ...p, property_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="Selecione o imóvel..." /></SelectTrigger>
-                <SelectContent>
-                  {properties.map((p) => <SelectItem key={p.id} value={p.id}>{p.code}{p.address ? ` – ${p.address.slice(0, 40)}` : ""}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <FieldLabel label="Imóvel" tooltip="Apenas imóveis disponíveis (não alugados) são exibidos. O proprietário é mostrado abaixo." required />
+              <SearchableSelect
+                placeholder="Selecione o imóvel..."
+                value={form.property_id}
+                onChange={(v) => setForm((p) => ({ ...p, property_id: v }))}
+                items={propertyItems}
+                getLabel={(id) => {
+                  const p = properties.find((pp) => pp.id === id);
+                  return p ? p.code + (p.address ? ` – ${p.address.slice(0, 30)}` : "") : "";
+                }}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -415,19 +686,37 @@ export default function GestaoAluguel() {
                 </div>
               </div>
               <div className="space-y-2">
+                <FieldLabel label="Taxa de administração (%)" tooltip="Percentual da taxa de administração da imobiliária." />
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.01}
+                  value={form.management_fee_percent}
+                  onChange={(e) => setForm((p) => ({ ...p, management_fee_percent: e.target.value }))}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+            {rentValPreview > 0 && (
+              <div className="grid grid-cols-2 gap-4 rounded-lg bg-muted/40 p-3 text-sm">
+                <div><p className="text-xs text-muted-foreground">Valor administração</p><p className="font-mono font-medium">R$ {formatMoney(feeValuePreview)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Valor repasse</p><p className="font-mono font-medium">R$ {formatMoney(repassePreview)}</p></div>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
                 <FieldLabel label="Data de início" tooltip="Data em que o contrato começa a vigorar." required />
                 <Input type="date" value={form.start_date} onChange={(e) => setForm((p) => ({ ...p, start_date: e.target.value }))} />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <FieldLabel label="Dia de vencimento" tooltip="Dia do mês em que o aluguel vence (1 a 31)." required />
                 <Input type="number" min={1} max={31} value={form.due_day} onChange={(e) => setForm((p) => ({ ...p, due_day: e.target.value }))} placeholder="10" />
               </div>
-              <div className="space-y-2">
-                <FieldLabel label="Período (meses)" tooltip="Duração total do contrato em meses." required />
-                <Input type="number" min={1} value={form.duration_months} onChange={(e) => setForm((p) => ({ ...p, duration_months: e.target.value }))} placeholder="12" />
-              </div>
+            </div>
+            <div className="space-y-2">
+              <FieldLabel label="Período (meses)" tooltip="Duração total do contrato em meses." required />
+              <Input type="number" min={1} value={form.duration_months} onChange={(e) => setForm((p) => ({ ...p, duration_months: e.target.value }))} placeholder="12" />
             </div>
             {formError && <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{formError}</div>}
           </div>
@@ -442,11 +731,14 @@ export default function GestaoAluguel() {
 
       {/* Management Dialog (installments) */}
       <Dialog open={managementOpen} onOpenChange={setManagementOpen}>
-        <DialogContent className="sm:max-w-2xl flex flex-col max-h-[90vh]">
+        <DialogContent className="sm:max-w-3xl flex flex-col max-h-[90vh]">
           <DialogHeader className="shrink-0">
             <DialogTitle>Cronograma de pagamentos</DialogTitle>
             <DialogDescription>
               {managementContract?.tenants?.full_name} — R$ {managementContract ? formatMoney(managementContract.rent_value) : ""}/mês
+              {managementContract && managementContract.management_fee_percent > 0 && (
+                <> · Taxa: {managementContract.management_fee_percent}% · Repasse: R$ {formatMoney(managementContract.repasse_value)}</>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="overflow-y-auto flex-1">
@@ -459,19 +751,50 @@ export default function GestaoAluguel() {
                     <TableHead>Competência</TableHead>
                     <TableHead>Vencimento</TableHead>
                     <TableHead>Valor</TableHead>
+                    <TableHead className="hidden md:table-cell">Tx. Admin</TableHead>
+                    <TableHead className="hidden md:table-cell">Repasse</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Data pagamento</TableHead>
+                    <TableHead>Pagamento</TableHead>
                     <TableHead className="text-right">Ação</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {installments.map((inst) => {
                     const resolvedStatus = resolveInstStatus(inst);
+                    const isEditing = editingInstValue[inst.id] !== undefined;
+                    const feeP = inst.management_fee_percent ?? 0;
+                    const feeV = inst.management_fee_value ?? (inst.value * feeP / 100);
+                    const rep = inst.repasse_value ?? (inst.value - feeV);
                     return (
                       <TableRow key={inst.id} className="border-border/40">
                         <TableCell className="font-mono text-sm">{inst.competence}</TableCell>
                         <TableCell className="text-sm">{format(parseISO(inst.due_date + "T00:00:00"), "dd/MM/yyyy")}</TableCell>
-                        <TableCell className="font-mono text-sm">R$ {formatMoney(inst.value)}</TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {inst.status !== "pago" && isEditing ? (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                className="h-7 text-xs w-24"
+                                value={editingInstValue[inst.id]}
+                                onChange={(e) => setEditingInstValue((p) => ({ ...p, [inst.id]: maskCurrency(e.target.value) }))}
+                                inputMode="numeric"
+                              />
+                              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => saveInstValue(inst)} disabled={savingInstValue === inst.id}>
+                                {savingInstValue === inst.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "OK"}
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingInstValue((p) => { const n = { ...p }; delete n[inst.id]; return n; })}>✕</Button>
+                            </div>
+                          ) : (
+                            <span
+                              className={inst.status !== "pago" ? "cursor-pointer hover:text-primary transition-colors" : ""}
+                              title={inst.status !== "pago" ? "Clique para editar" : ""}
+                              onClick={() => inst.status !== "pago" && setEditingInstValue((p) => ({ ...p, [inst.id]: formatMoney(inst.value) }))}
+                            >
+                              R$ {formatMoney(inst.value)}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">R$ {formatMoney(feeV)}</TableCell>
+                        <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">R$ {formatMoney(rep)}</TableCell>
                         <TableCell>
                           <Badge variant={INST_COLORS[resolvedStatus] ?? "outline"} className="text-xs">
                             {INST_LABELS[resolvedStatus] ?? resolvedStatus}

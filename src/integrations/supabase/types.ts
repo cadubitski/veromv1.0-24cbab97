@@ -268,8 +268,11 @@ export type Database = {
           due_day: number
           duration_months: number
           id: string
+          management_fee_percent: number
+          management_fee_value: number | null
           property_id: string
           rent_value: number
+          repasse_value: number | null
           start_date: string
           status: string
           tenant_id: string
@@ -281,8 +284,11 @@ export type Database = {
           due_day: number
           duration_months: number
           id?: string
+          management_fee_percent?: number
+          management_fee_value?: number | null
           property_id: string
           rent_value: number
+          repasse_value?: number | null
           start_date: string
           status?: string
           tenant_id: string
@@ -294,8 +300,11 @@ export type Database = {
           due_day?: number
           duration_months?: number
           id?: string
+          management_fee_percent?: number
+          management_fee_value?: number | null
           property_id?: string
           rent_value?: number
+          repasse_value?: number | null
           start_date?: string
           status?: string
           tenant_id?: string
@@ -333,7 +342,10 @@ export type Database = {
           created_at: string
           due_date: string
           id: string
+          management_fee_percent: number
+          management_fee_value: number | null
           paid_at: string | null
+          repasse_value: number | null
           status: string
           updated_at: string
           value: number
@@ -345,7 +357,10 @@ export type Database = {
           created_at?: string
           due_date: string
           id?: string
+          management_fee_percent?: number
+          management_fee_value?: number | null
           paid_at?: string | null
+          repasse_value?: number | null
           status?: string
           updated_at?: string
           value: number
@@ -357,7 +372,10 @@ export type Database = {
           created_at?: string
           due_date?: string
           id?: string
+          management_fee_percent?: number
+          management_fee_value?: number | null
           paid_at?: string | null
+          repasse_value?: number | null
           status?: string
           updated_at?: string
           value?: number
