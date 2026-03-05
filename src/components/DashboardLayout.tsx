@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Building2, LayoutDashboard, Users, CreditCard,
   LogOut, Menu, ChevronDown, ChevronRight,
-  Shield, BookUser, Home, Sun, Moon, TrendingUp
+  Shield, BookUser, Home, Sun, Moon, TrendingUp, BarChart2
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,13 @@ const userNav: NavItem[] = [
     icon: TrendingUp,
     children: [
       { label: "Gestão de Aluguel", href: "/movimentos/gestao-aluguel" },
+    ],
+  },
+  {
+    label: "Relatórios",
+    icon: BarChart2,
+    children: [
+      { label: "Repasse", href: "/relatorios/repasse" },
     ],
   },
 ];

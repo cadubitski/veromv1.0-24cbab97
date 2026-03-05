@@ -15,6 +15,7 @@ import Clientes from "./pages/cadastros/Clientes";
 import Imoveis from "./pages/cadastros/Imoveis";
 import Inquilinos from "./pages/cadastros/Inquilinos";
 import GestaoAluguel from "./pages/movimentos/GestaoAluguel";
+import Repasse from "./pages/relatorios/Repasse";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/cadastros/imoveis" element={<ProtectedRoute><Imoveis /></ProtectedRoute>} />
             <Route path="/cadastros/inquilinos" element={<ProtectedRoute><Inquilinos /></ProtectedRoute>} />
             <Route path="/movimentos/gestao-aluguel" element={<ProtectedRoute><GestaoAluguel /></ProtectedRoute>} />
+            <Route path="/relatorios/repasse" element={<ProtectedRoute><Repasse /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
