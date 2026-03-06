@@ -23,51 +23,34 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Try multiple possible endpoint paths for the billing-core portal link
-    const endpoints = [
-      `${BILLING_URL}/functions/v1/billing-core/stripe/portal-link`,
-      `${BILLING_URL}/functions/v1/stripe-portal-link`,
-      `${BILLING_URL}/functions/v1/portal-link`,
-    ];
+    const res = await fetch(`${BILLING_URL}/functions/v1/billing-core/stripe/portal-link`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: BILLING_ANON,
+        Authorization: `Bearer ${BILLING_ANON}`,
+      },
+      body: JSON.stringify({ customer_email, saas_key }),
+    });
 
-    let lastError = "";
-    let lastStatus = 500;
+    const data = await res.json();
+    console.log(`portal-link status: ${res.status}`, data);
 
-    for (const endpoint of endpoints) {
-      try {
-        const res = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: BILLING_ANON,
-            Authorization: `Bearer ${BILLING_ANON}`,
-          },
-          body: JSON.stringify({ customer_email, saas_key }),
-        });
-
-        const data = await res.json();
-        console.log(`Endpoint ${endpoint} status: ${res.status}`, data);
-
-        if (res.ok) {
-          const url = data?.url || data?.portal_url || data?.portalUrl;
-          if (url) {
-            return new Response(
-              JSON.stringify({ url }),
-              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-          }
-        }
-
-        lastError = data?.error || `Status ${res.status}`;
-        lastStatus = res.status;
-      } catch (e) {
-        lastError = e.message;
+    if (res.ok) {
+      const url = data?.url || data?.portal_url || data?.portalUrl;
+      if (url) {
+        return new Response(
+          JSON.stringify({ url }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
     }
 
+    // Return the actual error from billing-core for better debugging
+    const errorMsg = data?.error || data?.message || `Erro ${res.status} no billing-core`;
     return new Response(
-      JSON.stringify({ error: lastError || "Não foi possível obter o link do portal" }),
-      { status: lastStatus, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: errorMsg }),
+      { status: res.status >= 400 ? res.status : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
     console.error("get-portal-link error:", err);
