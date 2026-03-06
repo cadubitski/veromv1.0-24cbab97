@@ -5,8 +5,6 @@ const corsHeaders = {
 };
 
 const BILLING_URL = "https://rdkrgtkuevzlvxzsyzrb.supabase.co/functions/v1/billing-core";
-const BILLING_ANON =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJka3JndGt1ZXZ6bHZ4enN5enJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MjQwMTEsImV4cCI6MjA4ODMwMDAxMX0.idbJkgu8ZLJhRzJUyfczfrSKgjTEksR_DMB-0IGaav4";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -14,6 +12,14 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const billingServiceKey = Deno.env.get("BILLING_SUPABASE_SERVICE_ROLE_KEY");
+    if (!billingServiceKey) {
+      return new Response(
+        JSON.stringify({ error: "BILLING_SUPABASE_SERVICE_ROLE_KEY não configurado" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { email, price_id, success_url, cancel_url } = await req.json();
 
     if (!email || !price_id || !success_url || !cancel_url) {
@@ -27,8 +33,8 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        apikey: BILLING_ANON,
-        Authorization: `Bearer ${BILLING_ANON}`,
+        "apikey": billingServiceKey,
+        "Authorization": `Bearer ${billingServiceKey}`,
       },
       body: JSON.stringify({ email, priceId: price_id, successUrl: success_url, cancelUrl: cancel_url, saasKey: "verom" }),
     });
@@ -42,7 +48,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // billing-core may return url, checkout_url, sessionUrl, etc.
     const url = data?.url || data?.checkout_url || data?.sessionUrl || data?.session_url || data?.checkoutUrl;
     if (!url) {
       return new Response(
