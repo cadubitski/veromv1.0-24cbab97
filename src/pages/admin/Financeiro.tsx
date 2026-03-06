@@ -89,25 +89,28 @@ export default function Financeiro() {
     setLoadingPortal(true);
     setError("");
     try {
-      const res = await fetch(
-        "https://idrjkzqgmvooqiegandx.supabase.co/functions/v1/billing-core/stripe/portal-link",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            customer_email: billing.customer_email,
-            saas_key: billing.saas_key,
-          }),
-        }
-      );
-      const data = await res.json();
-      if (data?.url) {
-        window.open(data.url, "_blank");
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await supabase.functions.invoke("get-portal-link", {
+        body: {
+          customer_email: billing.customer_email,
+          saas_key: billing.saas_key,
+        },
+        headers: session?.access_token
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : {},
+      });
+
+      if (res.error) throw new Error(res.error.message);
+
+      const url = res.data?.url;
+      if (url) {
+        window.open(url, "_blank");
       } else {
         setError("Não foi possível abrir o portal financeiro. Tente novamente.");
       }
-    } catch {
-      setError("Erro de conexão ao abrir o portal financeiro.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Erro desconhecido";
+      setError(`Erro ao abrir o portal financeiro: ${message}`);
     } finally {
       setLoadingPortal(false);
     }
