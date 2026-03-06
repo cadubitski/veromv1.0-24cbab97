@@ -4,7 +4,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const BILLING_URL = "https://rdkrgtkuevzlvxzsyzrb.supabase.co/functions/v1/billing-core";
+const BILLING_URL = "https://idrjkzqgmvooqiegandx.supabase.co";
+const BILLING_ANON =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkcmprenFnbXZvb3FpZWdhbmR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgwMzI1ODAsImV4cCI6MjAyMzYwODU4MH0.kzrEyOz3JBrSzJHjSFDrN8cqMmjcxAl1MZnfTy2JL8s";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -12,14 +14,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const billingServiceKey = Deno.env.get("BILLING_SUPABASE_SERVICE_ROLE_KEY");
-    if (!billingServiceKey) {
-      return new Response(
-        JSON.stringify({ error: "BILLING_SUPABASE_SERVICE_ROLE_KEY não configurado" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const { email, price_id, success_url, cancel_url } = await req.json();
 
     if (!email || !price_id || !success_url || !cancel_url) {
@@ -29,12 +23,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    const res = await fetch(`${BILLING_URL}/stripe/create-checkout`, {
+    const res = await fetch(`${BILLING_URL}/functions/v1/billing-core/stripe/create-checkout`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "apikey": billingServiceKey,
-        "Authorization": `Bearer ${billingServiceKey}`,
+        apikey: BILLING_ANON,
+        Authorization: `Bearer ${BILLING_ANON}`,
       },
       body: JSON.stringify({ email, priceId: price_id, successUrl: success_url, cancelUrl: cancel_url, saasKey: "verom" }),
     });
@@ -48,6 +42,7 @@ Deno.serve(async (req) => {
       );
     }
 
+    // billing-core may return url, checkout_url, sessionUrl, etc.
     const url = data?.url || data?.checkout_url || data?.sessionUrl || data?.session_url || data?.checkoutUrl;
     if (!url) {
       return new Response(

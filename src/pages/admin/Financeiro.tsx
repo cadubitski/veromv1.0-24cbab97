@@ -34,10 +34,12 @@ export default function Financeiro() {
     setLoadingBilling(true);
     setError("");
     try {
-      const BILLING_URL = "https://rdkrgtkuevzlvxzsyzrb.supabase.co/functions/v1/billing-core";
-      const BILLING_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJka3JndGt1ZXZ6bHZ4enN5enJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MjQwMTEsImV4cCI6MjA4ODMwMDAxMX0.idbJkgu8ZLJhRzJUyfczfrSKgjTEksR_DMB-0IGaav4";
+      // Query billing-core for this company's billing info
+      // Using the external billing-core Supabase project
+      const BILLING_URL = "https://idrjkzqgmvooqiegandx.supabase.co";
+      const BILLING_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkcmprenFnbXZvb3FpZWdhbmR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgwMzI1ODAsImV4cCI6MjAyMzYwODU4MH0.kzrEyOz3JBrSzJHjSFDrN8cqMmjcxAl1MZnfTy2JL8s";
 
-      const res = await fetch(`${BILLING_URL}/subscriptions?saas_key=eq.verom&customer_email=eq.${encodeURIComponent(user.email ?? "")}`, {
+      const res = await fetch(`${BILLING_URL}/rest/v1/subscriptions?saas_key=eq.verom&customer_email=eq.${encodeURIComponent(user.email ?? "")}`, {
         headers: {
           apikey: BILLING_ANON,
           Authorization: `Bearer ${BILLING_ANON}`,
@@ -87,17 +89,11 @@ export default function Financeiro() {
     setLoadingPortal(true);
     setError("");
     try {
-      const BILLING_URL = "https://rdkrgtkuevzlvxzsyzrb.supabase.co/functions/v1/billing-core";
-      const BILLING_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJka3JndGt1ZXZ6bHZ4enN5enJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MjQwMTEsImV4cCI6MjA4ODMwMDAxMX0.idbJkgu8ZLJhRzJUyfczfrSKgjTEksR_DMB-0IGaav4";
       const res = await fetch(
-        `${BILLING_URL}/stripe/portal-link`,
+        "https://idrjkzqgmvooqiegandx.supabase.co/functions/v1/billing-core/stripe/portal-link",
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: BILLING_ANON,
-            Authorization: `Bearer ${BILLING_ANON}`,
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             customer_email: billing.customer_email,
             saas_key: billing.saas_key,
