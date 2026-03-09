@@ -55,6 +55,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
     ]);
 
+    let companyEmail: string | null = null;
+
     if (profileRes.data) {
       setProfile(profileRes.data as Profile);
       const companyRes = await supabase
@@ -62,12 +64,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .select("*")
         .eq("id", profileRes.data.company_id)
         .maybeSingle();
-      if (companyRes.data) setCompany(companyRes.data as Company);
+      if (companyRes.data) {
+        setCompany(companyRes.data as Company);
+        // Usa o email da empresa (do admin que registrou e pagou) para checar billing
+        companyEmail = companyRes.data.email ?? null;
+      }
     }
 
     if (roleRes.data) {
       setRole(roleRes.data.role as "admin" | "user");
     }
+
+    return companyEmail;
   };
 
   const fetchBillingStatus = async (email: string) => {
