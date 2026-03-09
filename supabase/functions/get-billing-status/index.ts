@@ -7,7 +7,7 @@ const corsHeaders = {
 const BILLING_URL = "https://idrjkzqgmvooqiegandx.supabase.co";
 const BILLING_ANON =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkcmprenFnbXZvb3FpZWdhbmR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgwMzI1ODAsImV4cCI6MjAyMzYwODU4MH0.kzrEyOz3JBrSzJHjSFDrN8cqMmjcxAl1MZnfTy2JL8s";
-const SAAS_KEY = "verom";
+const SAAS_KEY = "verom"; // Identificador deste produto no billing-core
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     }
 
     const res = await fetch(
-      `${BILLING_URL}/rest/v1/subscriptions?saas_key=eq.${encodeURIComponent(SAAS_KEY)}&customer_email=eq.${encodeURIComponent(customer_email)}&select=status,customer_email`,
+      `${BILLING_URL}/functions/v1/billing-core/protected/data?saas_key=${encodeURIComponent(SAAS_KEY)}&customer_email=${encodeURIComponent(customer_email)}`,
       {
         headers: {
           apikey: BILLING_ANON,
@@ -44,7 +44,8 @@ Deno.serve(async (req) => {
     }
 
     const data = await res.json();
-    const subscription = Array.isArray(data) && data.length > 0 ? data[0] : null;
+    // /protected/data retorna array ou objeto com a subscription
+    const subscription = Array.isArray(data) && data.length > 0 ? data[0] : (data ?? null);
 
     return new Response(
       JSON.stringify({
