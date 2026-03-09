@@ -99,7 +99,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshBilling = async () => {
-    if (user?.email) await fetchBillingStatus(user.email);
+    // Sempre usa o email da empresa (quem pagou a assinatura), não o email do usuário logado
+    if (company?.email) await fetchBillingStatus(company.email);
   };
 
   useEffect(() => {
@@ -107,10 +108,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
-        setTimeout(() => fetchUserData(sess.user.id), 0);
-        if (sess.user.email) {
-          setTimeout(() => fetchBillingStatus(sess.user.email!), 0);
-        }
+        // Busca dados do usuário primeiro para obter o email da empresa
+        setTimeout(async () => {
+          const companyEmail = await fetchUserData(sess.user.id);
+          if (companyEmail) await fetchBillingStatus(companyEmail);
+        }, 0);
       } else {
         setProfile(null);
         setCompany(null);
@@ -124,10 +126,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
-        Promise.all([
-          fetchUserData(sess.user.id),
-          sess.user.email ? fetchBillingStatus(sess.user.email) : Promise.resolve(),
-        ]).then(() => setLoading(false));
+        fetchUserData(sess.user.id).then(async (companyEmail) => {
+          if (companyEmail) await fetchBillingStatus(companyEmail);
+          setLoading(false);
+        });
       } else {
         setLoading(false);
       }
