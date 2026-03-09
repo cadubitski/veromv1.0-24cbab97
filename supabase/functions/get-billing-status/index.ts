@@ -31,7 +31,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const url = `${BILLING_URL}/functions/v1/billing-core/protected/data?saas_key=${encodeURIComponent(SAAS_KEY)}&customer_email=${encodeURIComponent(customer_email)}`;
+    // BILLING_CORE_URL já inclui o caminho base, ex: https://xxx.supabase.co/functions/v1/billing-core
+    const url = `${BILLING_URL}/protected/data?saas_key=${encodeURIComponent(SAAS_KEY)}&customer_email=${encodeURIComponent(customer_email)}`;
     console.log("Calling billing-core:", url);
 
     const res = await fetch(url, {
