@@ -34,41 +34,17 @@ export default function Financeiro() {
     setLoadingBilling(true);
     setError("");
     try {
-      // Query billing-core for this company's billing info
-      // Using the external billing-core Supabase project
-      const BILLING_URL = "https://idrjkzqgmvooqiegandx.supabase.co";
-      const BILLING_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkcmprenFnbXZvb3FpZWdhbmR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgwMzI1ODAsImV4cCI6MjAyMzYwODU4MH0.kzrEyOz3JBrSzJHjSFDrN8cqMmjcxAl1MZnfTy2JL8s";
-
-      const res = await fetch(`${BILLING_URL}/rest/v1/subscriptions?saas_key=eq.verom&customer_email=eq.${encodeURIComponent(user.email ?? "")}`, {
-        headers: {
-          apikey: BILLING_ANON,
-          Authorization: `Bearer ${BILLING_ANON}`,
-          "Content-Type": "application/json",
-        },
+      const { data, error: fnError } = await supabase.functions.invoke("get-billing-status", {
+        body: { customer_email: user.email ?? "" },
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.length > 0) {
-          setBilling({
-            status: data[0].status,
-            customer_email: user.email ?? "",
-            saas_key: "verom",
-          });
-        } else {
-          setBilling({
-            status: null,
-            customer_email: user.email ?? "",
-            saas_key: "verom",
-          });
-        }
-      } else {
-        setBilling({
-          status: null,
-          customer_email: user.email ?? "",
-          saas_key: "verom",
-        });
-      }
+      if (fnError) throw new Error(fnError.message);
+
+      setBilling({
+        status: data?.status ?? null,
+        customer_email: user.email ?? "",
+        saas_key: data?.saas_key ?? "verom",
+      });
     } catch {
       setBilling({
         status: null,
