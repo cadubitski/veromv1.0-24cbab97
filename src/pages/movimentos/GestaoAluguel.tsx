@@ -628,7 +628,7 @@ export default function GestaoAluguel() {
           <Table>
             <TableHeader>
               <TableRow className="border-border/40">
-                {visibleCols.has("tenant_name") && <TableHead className={thClass} onClick={() => handleSort("tenant_name")}>Inquilino <SortIcon col="tenant_name" /></TableHead>}
+                {visibleCols.has("tenant_name") && <TableHead className={thClass} onClick={() => handleSort("tenant_name")}>Locatário <SortIcon col="tenant_name" /></TableHead>}
                 {visibleCols.has("property_code") && <TableHead className={thClass} onClick={() => handleSort("property_code")}>Imóvel <SortIcon col="property_code" /></TableHead>}
                 {visibleCols.has("rent_value") && <TableHead className={thClass} onClick={() => handleSort("rent_value")}>Valor <SortIcon col="rent_value" /></TableHead>}
                 {visibleCols.has("management_fee") && <TableHead>Taxa Admin</TableHead>}
