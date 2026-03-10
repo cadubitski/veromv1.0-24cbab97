@@ -105,9 +105,6 @@ const INST_LABELS: Record<string, string> = {
   atrasado: "Atrasado",
 };
 
-function formatMoney(v: number) {
-  return v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 // Searchable select component
 function SearchableSelect({
