@@ -301,15 +301,15 @@ export default function Inquilinos() {
               </div>
             </div>
             <div className="space-y-2">
-              <FieldLabel label="E-mail" tooltip="Endereço de e-mail do inquilino." />
+              <FieldLabel label="E-mail" tooltip="Endereço de e-mail do locatário." />
               <Input type="email" value={form.email ?? ""} onChange={(e) => f("email", e.target.value)} placeholder="email@exemplo.com" />
             </div>
             <div className="space-y-2">
-              <FieldLabel label="Endereço completo" tooltip="Endereço residencial ou comercial do inquilino." />
+              <FieldLabel label="Endereço completo" tooltip="Endereço residencial ou comercial do locatário." />
               <Input value={form.address ?? ""} onChange={(e) => f("address", e.target.value)} placeholder="Rua, número, bairro, cidade - UF" />
             </div>
             <div className="space-y-2">
-              <FieldLabel label="Observações internas" tooltip="Notas internas sobre este inquilino, visíveis apenas para a equipe." />
+              <FieldLabel label="Observações internas" tooltip="Notas internas sobre este locatário, visíveis apenas para a equipe." />
               <Textarea value={form.notes ?? ""} onChange={(e) => f("notes", e.target.value)} placeholder="Informações relevantes..." rows={3} className="resize-none" />
             </div>
             {error && <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
