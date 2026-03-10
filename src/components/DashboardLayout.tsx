@@ -41,6 +41,13 @@ const userNav: NavItem[] = [
       { label: "Repasse", href: "/relatorios/repasse" },
     ],
   },
+  {
+    label: "Documentos",
+    icon: FileEdit,
+    children: [
+      { label: "Modelos de Documentos", href: "/documentos/modelos" },
+    ],
+  },
 ];
 
 const adminNav: NavItem[] = [
