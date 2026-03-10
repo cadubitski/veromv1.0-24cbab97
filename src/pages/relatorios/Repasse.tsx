@@ -130,7 +130,7 @@ export default function Repasse() {
     const exportData = filtered.map((r) => ({
       "Competência": r.competence,
       "Vencimento": format(parseISO(r.due_date + "T00:00:00"), "dd/MM/yyyy"),
-      "Inquilino": r.tenant_name,
+      "Locatário": r.tenant_name,
       "Imóvel": r.property_code,
       "Endereço": r.property_address,
       "Proprietário": r.owner_name,
