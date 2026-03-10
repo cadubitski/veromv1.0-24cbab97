@@ -937,6 +937,7 @@ export default function GestaoContratos() {
                       {c.code ? <span className="px-1.5 py-0.5 rounded bg-muted text-xs">{c.code}</span> : <span className="text-muted-foreground text-xs">—</span>}
                     </TableCell>
                   )}
+                  {visibleCols.has("owner_name") && <TableCell className="text-sm text-muted-foreground">{c.properties?.clients?.full_name ?? "—"}</TableCell>}
                   {visibleCols.has("tenant_name") && <TableCell className="font-medium text-sm">{c.tenants?.full_name ?? "—"}</TableCell>}
                   {visibleCols.has("property_code") && (
                     <TableCell className="text-muted-foreground text-sm">
