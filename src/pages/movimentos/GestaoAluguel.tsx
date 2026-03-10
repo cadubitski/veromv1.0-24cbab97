@@ -617,6 +617,35 @@ export default function GestaoContratos() {
 
         await supabase.from("properties").update({ status: "alugado" }).eq("id", form.property_id);
 
+        // Fetch property owner type and tax brackets for IR calculation
+        const { data: propData } = await supabase
+          .from("properties")
+          .select("clients(person_type)")
+          .eq("id", form.property_id)
+          .single();
+        const ownerPersonType = (propData as any)?.clients?.person_type ?? "fisica";
+
+        const { data: taxBrackets } = await supabase
+          .from("income_tax_brackets")
+          .select("*")
+          .order("range_start");
+
+        const calcIR = (rentValue: number): { feeVal: number; taxBase: number; irrfVal: number; ownerNet: number; repasseVal: number } => {
+          const feeVal = rentValue * feeP / 100;
+          const taxBase = rentValue - feeVal;
+          let irrfVal = 0;
+          if (ownerPersonType === "fisica" && taxBrackets && taxBrackets.length > 0) {
+            const bracket = (taxBrackets as any[]).find(
+              (b) => taxBase >= b.range_start && (b.range_end == null || taxBase <= b.range_end)
+            );
+            if (bracket) {
+              irrfVal = Math.max(0, (taxBase * bracket.rate / 100) - bracket.deduction);
+            }
+          }
+          const ownerNet = taxBase - irrfVal;
+          return { feeVal, taxBase, irrfVal, ownerNet, repasseVal: ownerNet };
+        };
+
         const startDate = parseISO(form.start_date);
         const installmentRows = [];
         for (let i = 0; i < durationMonths; i++) {
@@ -629,6 +658,7 @@ export default function GestaoContratos() {
             dueDate = setDate(monthDate, Math.min(dueDay, lastDay));
           }
           const competence = format(monthDate, "MM/yyyy");
+          const ir = calcIR(rentVal);
           installmentRows.push({
             company_id: company.id,
             contract_id: contractId,
@@ -636,6 +666,11 @@ export default function GestaoContratos() {
             due_date: format(dueDate, "yyyy-MM-dd"),
             value: rentVal,
             management_fee_percent: feeP,
+            management_fee_value: ir.feeVal,
+            tax_base_value: ir.taxBase,
+            irrf_value: ir.irrfVal,
+            owner_net_value: ir.ownerNet,
+            repasse_value: ir.repasseVal,
             status: "em_aberto",
           });
         }
