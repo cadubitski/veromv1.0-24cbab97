@@ -23,10 +23,11 @@ const statusConfig = {
 };
 
 export default function Financeiro() {
-  const { user, company } = useAuth();
+  const { user, company, refreshBilling } = useAuth();
   const [billing, setBilling] = useState<BillingInfo | null>(null);
   const [loadingBilling, setLoadingBilling] = useState(true);
   const [loadingPortal, setLoadingPortal] = useState(false);
+  const [loadingRefresh, setLoadingRefresh] = useState(false);
   const [error, setError] = useState("");
 
   const fetchBilling = async () => {
