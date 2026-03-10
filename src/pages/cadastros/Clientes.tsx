@@ -350,7 +350,7 @@ export default function Clientes() {
               <Input value={form.full_name} onChange={(e) => f("full_name", e.target.value)} placeholder="Ex: João Silva" />
             </div>
             <div className="space-y-2">
-              <FieldLabel label={form.person_type === "fisica" ? "CPF" : "CNPJ"} tooltip={form.person_type === "fisica" ? "CPF do proprietário." : "CNPJ da empresa proprietária."} />
+              <FieldLabel label={form.person_type === "fisica" ? "CPF" : "CNPJ"} tooltip={form.person_type === "fisica" ? "CPF do proprietário." : "CNPJ da empresa proprietária."} required />
               <Input
                 value={form.document ?? ""}
                 onChange={(e) => handleDocument(e.target.value)}
