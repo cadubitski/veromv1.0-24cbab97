@@ -1130,6 +1130,8 @@ export default function GestaoContratos() {
                     <TableHead>Valor</TableHead>
                     <TableHead className="hidden md:table-cell">Tx. Admin</TableHead>
                     <TableHead className="hidden lg:table-cell">Base IR</TableHead>
+                    <TableHead className="hidden lg:table-cell whitespace-nowrap">Alíquota IR</TableHead>
+                    <TableHead className="hidden lg:table-cell whitespace-nowrap">Dedução IR</TableHead>
                     <TableHead className="hidden lg:table-cell">IRRF</TableHead>
                     <TableHead className="hidden md:table-cell">Repasse Líquido</TableHead>
                     <TableHead>Status</TableHead>
