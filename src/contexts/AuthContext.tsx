@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const fetchBillingStatus = async (email: string) => {
-    setBillingLoading(true);
+    // Não usa billingLoading para não causar re-render/spinner em toda navegação
     try {
       const { data, error } = await supabase.functions.invoke("get-billing-status", {
         body: { customer_email: email },
@@ -89,8 +89,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {
       // mantém null, não bloqueia login
-    } finally {
-      setBillingLoading(false);
     }
   };
 

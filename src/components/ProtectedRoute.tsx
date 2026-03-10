@@ -35,10 +35,10 @@ function BillingBlockedScreen() {
 }
 
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-  const { user, role, loading, billingStatus, billingLoading } = useAuth();
+  const { user, role, loading, billingStatus } = useAuth();
   const location = useLocation();
 
-  if (loading || billingLoading) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
