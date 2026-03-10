@@ -916,7 +916,11 @@ export default function GestaoContratos() {
                         { label: "Parcelas", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => openManagement(c) },
                         { label: "Imprimir contrato", icon: <Printer className="h-3.5 w-3.5" />, onClick: () => openPrint(c) },
                         { label: "Editar", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => openEdit(c) },
-                        { label: "Excluir", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => openDelete(c), variant: "destructive" },
+                        ...(c.status === "ativo" ? [
+                          { label: "Encerrar contrato", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => setStatusChangeTarget({ contract: c, newStatus: "encerrado" }), variant: "destructive" as const },
+                          { label: "Cancelar contrato", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => setStatusChangeTarget({ contract: c, newStatus: "cancelado" }), variant: "destructive" as const },
+                        ] : []),
+                        { label: "Excluir", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => openDelete(c), variant: "destructive" as const },
                       ]}
                     />
                   </TableCell>
