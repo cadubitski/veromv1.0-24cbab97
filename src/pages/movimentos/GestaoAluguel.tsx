@@ -78,6 +78,7 @@ type SortDir = "asc" | "desc";
 
 const CONTRACT_COLUMNS: ColumnDef[] = [
   { key: "code", label: "Código", defaultVisible: true },
+  { key: "owner_name", label: "Proprietário", defaultVisible: true },
   { key: "tenant_name", label: "Locatário", defaultVisible: true },
   { key: "property_code", label: "Imóvel", defaultVisible: true },
   { key: "rent_value", label: "Valor", defaultVisible: true },
