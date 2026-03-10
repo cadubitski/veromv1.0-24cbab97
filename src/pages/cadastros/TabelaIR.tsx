@@ -198,10 +198,10 @@ export default function TabelaIR() {
   };
 
   const handleSave = async () => {
-    const rangeStart = parseFloat(form.range_start.replace(",", "."));
-    const rangeEnd = form.range_end.trim() ? parseFloat(form.range_end.replace(",", ".")) : null;
+    const rangeStart = parseCurrency(form.range_start) ?? NaN;
+    const rangeEnd = form.range_end.trim() ? (parseCurrency(form.range_end) ?? null) : null;
     const rate = parseFloat(form.rate.replace(",", "."));
-    const deduction = parseFloat(form.deduction.replace(",", ".") || "0");
+    const deduction = parseCurrency(form.deduction) ?? 0;
     if (!form.valid_from_date.trim()) { setError("Data de vigência é obrigatória."); return; }
 
     if (isNaN(rangeStart) || rangeStart < 0) { setError("Início da faixa inválido."); return; }
