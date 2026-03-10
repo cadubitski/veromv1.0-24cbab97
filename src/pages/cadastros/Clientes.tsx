@@ -400,7 +400,7 @@ export default function Clientes() {
       {/* View Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Dados do cliente</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Dados do locador</DialogTitle></DialogHeader>
           {viewClient && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
