@@ -265,6 +265,9 @@ export default function TabelaIR() {
             <Table>
               <TableHeader>
                 <TableRow className="border-border/40">
+                  <TableHead className={thClass} onClick={() => handleSort("valid_from_date")}>
+                    Vigência a partir de <SortIcon col="valid_from_date" />
+                  </TableHead>
                   <TableHead className={thClass} onClick={() => handleSort("range_start")}>
                     Início da Faixa (R$) <SortIcon col="range_start" />
                   </TableHead>
@@ -279,12 +282,17 @@ export default function TabelaIR() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-12">
+                    <TableCell colSpan={6} className="text-center py-12">
                       <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
                     </TableCell>
                   </TableRow>
                 ) : sorted.map((b) => (
                   <TableRow key={b.id} className="border-border/40 hover:bg-muted/30 transition-colors">
+                    <TableCell className="text-sm font-medium">
+                      {b.valid_from_date
+                        ? new Date(b.valid_from_date + "T00:00:00").toLocaleDateString("pt-BR")
+                        : <span className="text-muted-foreground italic">—</span>}
+                    </TableCell>
                     <TableCell className="font-mono text-sm">R$ {formatMoney(b.range_start)}</TableCell>
                     <TableCell className="font-mono text-sm text-muted-foreground">
                       {b.range_end != null ? `R$ ${formatMoney(b.range_end)}` : <span className="italic">Acima (sem limite)</span>}
@@ -310,7 +318,7 @@ export default function TabelaIR() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{editBracket ? "Editar faixa" : "Nova faixa de IR"}</DialogTitle>
             <DialogDescription>
@@ -320,6 +328,18 @@ export default function TabelaIR() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <FieldLabel
+                label="Vigência a partir de"
+                tooltip="Data a partir da qual esta tabela de IR entra em vigor. O sistema usará automaticamente a vigência mais recente compatível com a competência de cada parcela."
+                required
+              />
+              <Input
+                type="date"
+                value={form.valid_from_date}
+                onChange={(e) => f("valid_from_date", e.target.value)}
+              />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <FieldLabel
