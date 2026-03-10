@@ -100,10 +100,10 @@ export default function TabelaIR() {
   const openEdit = (b: TaxBracket) => {
     setEditBracket(b);
     setForm({
-      range_start: String(b.range_start),
-      range_end: b.range_end != null ? String(b.range_end) : "",
+      range_start: maskCurrency(String(Math.round(b.range_start * 100))),
+      range_end: b.range_end != null ? maskCurrency(String(Math.round(b.range_end * 100))) : "",
       rate: String(b.rate),
-      deduction: String(b.deduction),
+      deduction: maskCurrency(String(Math.round(b.deduction * 100))),
       valid_from_date: b.valid_from_date ?? "",
     });
     setError(null);
