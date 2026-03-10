@@ -225,11 +225,11 @@ export default function Clientes() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Clientes</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Gerencie os proprietários e clientes da sua imobiliária.</p>
+            <h1 className="text-2xl font-bold tracking-tight">Locadores</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Gerencie os locadores (proprietários) da sua imobiliária.</p>
           </div>
           <Button onClick={openCreate} className="gap-2">
-            <Plus className="h-4 w-4" /> Novo Cliente
+            <Plus className="h-4 w-4" /> Novo Locador
           </Button>
         </div>
 
