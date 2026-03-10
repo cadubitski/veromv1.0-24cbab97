@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, Search, Eye, Pencil, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { StatusDot, ActionGear } from "@/components/TableActions";
 import { toast } from "sonner";
 import { maskCPF, maskCNPJ, maskPhone } from "@/lib/masks";
 import ColumnSelector, { ColumnDef } from "@/components/ColumnSelector";
@@ -232,18 +233,17 @@ export default function Inquilinos() {
                   {visibleCols.has("email") && <TableCell className="text-muted-foreground text-sm">{t.email || "—"}</TableCell>}
                   {visibleCols.has("address") && <TableCell className="text-muted-foreground text-sm truncate max-w-[160px]">{t.address || "—"}</TableCell>}
                   {visibleCols.has("status") && (
-                    <TableCell>
-                      <Badge variant={t.status === "ativo" ? "default" : "secondary"} className="text-xs">
-                        {t.status === "ativo" ? "Ativo" : "Inativo"}
-                      </Badge>
-                    </TableCell>
+                    <TableCell><StatusDot status={t.status} /></TableCell>
                   )}
                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openView(t)}><Eye className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(t)}><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => openDelete(t)}><Trash2 className="h-4 w-4" /></Button>
-                    </div>
+                    <ActionGear
+                      legendKeys={["ativo", "inativo"]}
+                      actions={[
+                        { label: "Visualizar", icon: <Eye className="h-3.5 w-3.5" />, onClick: () => openView(t) },
+                        { label: "Editar", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => openEdit(t) },
+                        { label: "Excluir", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => openDelete(t), variant: "destructive" },
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

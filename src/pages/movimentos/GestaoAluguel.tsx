@@ -24,6 +24,7 @@ import {
   Loader2, Plus, Search, Pencil, Trash2, ChevronDown, ChevronUp, FileText, CheckCircle2, Eye, Filter,
 } from "lucide-react";
 import ColumnSelector, { ColumnDef } from "@/components/ColumnSelector";
+import { StatusDot, ActionGear } from "@/components/TableActions";
 import { toast } from "sonner";
 import { maskCurrency, parseCurrency } from "@/lib/masks";
 import { format, addMonths, setDate, parseISO } from "date-fns";
@@ -688,19 +689,18 @@ export default function GestaoContratos() {
                   {visibleCols.has("due_day") && <TableCell className="text-muted-foreground text-sm">Dia {c.due_day}</TableCell>}
                   {visibleCols.has("duration_months") && <TableCell className="text-muted-foreground text-sm">{c.duration_months}m</TableCell>}
                   {visibleCols.has("status") && (
-                    <TableCell>
-                      <Badge variant={(STATUS_COLORS[c.status] as any) ?? "outline"} className="text-xs">
-                        {STATUS_LABELS[c.status] ?? c.status}
-                      </Badge>
-                    </TableCell>
+                    <TableCell><StatusDot status={c.status} /></TableCell>
                   )}
-                  <TableCell className="text-right w-[120px]">
-                    <div className="flex items-center justify-end gap-0.5">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Visualizar" onClick={() => openView(c)}><Eye className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Parcelas" onClick={() => openManagement(c)}><FileText className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Editar" onClick={() => openEdit(c)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive" title="Excluir" onClick={() => openDelete(c)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                    </div>
+                  <TableCell className="text-right w-[80px]">
+                    <ActionGear
+                      legendKeys={["ativo", "encerrado", "cancelado"]}
+                      actions={[
+                        { label: "Visualizar", icon: <Eye className="h-3.5 w-3.5" />, onClick: () => openView(c) },
+                        { label: "Parcelas", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => openManagement(c) },
+                        { label: "Editar", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => openEdit(c) },
+                        { label: "Excluir", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => openDelete(c), variant: "destructive" },
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -908,9 +908,7 @@ export default function GestaoContratos() {
                         <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">R$ {formatMoney(feeV)}</TableCell>
                         <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">R$ {formatMoney(rep)}</TableCell>
                         <TableCell>
-                          <Badge variant={INST_COLORS[resolvedStatus] ?? "outline"} className="text-xs">
-                            {INST_LABELS[resolvedStatus] ?? resolvedStatus}
-                          </Badge>
+                          <StatusDot status={resolvedStatus} />
                         </TableCell>
                         <TableCell>
                           {inst.status === "pago" ? (
