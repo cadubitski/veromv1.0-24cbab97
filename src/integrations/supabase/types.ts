@@ -154,6 +154,7 @@ export type Database = {
           range_start: number
           rate: number
           updated_at: string
+          valid_from_date: string
         }
         Insert: {
           company_id: string
@@ -164,6 +165,7 @@ export type Database = {
           range_start?: number
           rate?: number
           updated_at?: string
+          valid_from_date?: string
         }
         Update: {
           company_id?: string
@@ -174,6 +176,7 @@ export type Database = {
           range_start?: number
           rate?: number
           updated_at?: string
+          valid_from_date?: string
         }
         Relationships: [
           {
