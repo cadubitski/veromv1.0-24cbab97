@@ -317,7 +317,7 @@ export default function Imoveis() {
               {client ? `Imóveis de ${client.full_name}` : "Imóveis"}
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {client ? "Gerencie os imóveis deste cliente." : "Gerencie todos os imóveis cadastrados."}
+            {client ? "Gerencie os imóveis deste locador." : "Gerencie todos os imóveis cadastrados."}
             </p>
           </div>
           {clientId && (
