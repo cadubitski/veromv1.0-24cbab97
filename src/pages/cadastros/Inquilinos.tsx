@@ -272,7 +272,7 @@ export default function Inquilinos() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <FieldLabel label="Status" tooltip="Define se este inquilino está ativo no sistema." required />
+                <FieldLabel label="Status" tooltip="Define se este locatário está ativo no sistema." required />
                 <Select value={form.status} onValueChange={(v) => f("status", v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
