@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import {
-  Loader2, Plus, Search, Pencil, Trash2, ChevronDown, ChevronUp, FileText, CheckCircle2, Eye, Filter,
+  Loader2, Plus, Search, Pencil, Trash2, ChevronDown, ChevronUp, FileText, CheckCircle2, Eye, Filter, Printer,
 } from "lucide-react";
 import ColumnSelector, { ColumnDef } from "@/components/ColumnSelector";
 import { StatusDot, ActionGear } from "@/components/TableActions";
