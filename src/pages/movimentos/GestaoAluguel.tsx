@@ -419,6 +419,108 @@ export default function GestaoContratos() {
 
   const openView = (c: Contract) => { setViewContract(c); setViewDialogOpen(true); };
 
+  const openPrint = async (c: Contract) => {
+    setPrintContract(c);
+    setSelectedTemplateId("");
+    setLoadingTemplates(true);
+    setPrintDialogOpen(true);
+    const { data } = await supabase.from("document_templates").select("id, nome_modelo, descricao, conteudo_markdown, entidades_utilizadas").order("nome_modelo");
+    setTemplates((data as DocumentTemplate[]) ?? []);
+    setLoadingTemplates(false);
+  };
+
+  const handleGenerateDocument = async () => {
+    if (!selectedTemplateId || !printContract) return;
+    const template = templates.find((t) => t.id === selectedTemplateId);
+    if (!template) return;
+
+    setGenerating(true);
+    try {
+      // Fetch full contract data with relations
+      const { data: contractData } = await supabase
+        .from("rental_contracts")
+        .select("*, tenants(*), properties(*, clients(*), property_types(name))")
+        .eq("id", printContract.id)
+        .single();
+
+      if (!contractData) throw new Error("Contrato não encontrado.");
+
+      const c = contractData as any;
+      const tenant = c.tenants ?? {};
+      const property = c.properties ?? {};
+      const owner = property.clients ?? {};
+
+      // Build replacement map
+      const replacements: Record<string, string> = {
+        "{{contrato.codigo}}": c.code ?? "—",
+        "{{contrato.valor_aluguel}}": `R$ ${formatMoney(c.rent_value)}`,
+        "{{contrato.data_inicio}}": c.start_date ? format(parseISO(c.start_date), "dd/MM/yyyy") : "—",
+        "{{contrato.dia_vencimento}}": String(c.due_day ?? "—"),
+        "{{contrato.duracao_meses}}": String(c.duration_months ?? "—"),
+        "{{contrato.taxa_administracao}}": `${c.management_fee_percent ?? 0}%`,
+        "{{contrato.valor_taxa}}": `R$ ${formatMoney(c.management_fee_value ?? 0)}`,
+        "{{contrato.valor_repasse}}": `R$ ${formatMoney(c.repasse_value ?? 0)}`,
+        "{{contrato.status}}": c.status ?? "—",
+        "{{locatario.nome}}": tenant.full_name ?? "—",
+        "{{locatario.documento}}": tenant.document ?? "—",
+        "{{locatario.email}}": tenant.email ?? "—",
+        "{{locatario.telefone}}": tenant.phone ?? "—",
+        "{{locatario.whatsapp}}": tenant.whatsapp ?? "—",
+        "{{locatario.endereco}}": tenant.address ?? "—",
+        "{{locador.nome}}": owner.full_name ?? "—",
+        "{{locador.documento}}": owner.document ?? "—",
+        "{{locador.email}}": owner.email ?? "—",
+        "{{locador.telefone}}": owner.phone ?? "—",
+        "{{locador.whatsapp}}": owner.whatsapp ?? "—",
+        "{{locador.endereco}}": owner.address ?? "—",
+        "{{imovel.codigo}}": property.code ?? "—",
+        "{{imovel.endereco}}": property.address ?? "—",
+        "{{imovel.tipo}}": property.property_types?.name ?? "—",
+        "{{imovel.area_m2}}": property.area_m2 ? `${property.area_m2} m²` : "—",
+        "{{imovel.matricula}}": property.registry_number ?? "—",
+        "{{imovel.inscricao_municipal}}": property.municipal_registration ?? "—",
+        "{{imovel.valor_aluguel}}": property.rent_value ? `R$ ${formatMoney(property.rent_value)}` : "—",
+      };
+
+      // Replace all known tags
+      let content = template.conteudo_markdown;
+      for (const [tag, value] of Object.entries(replacements)) {
+        content = content.replaceAll(tag, value);
+      }
+      // Highlight unresolved tags
+      content = content.replace(/\{\{[^}]+\}\}/g, (match) =>
+        `<span class="unresolved">${match}</span>`
+      );
+
+      const html = markdownToHtml(content);
+
+      // Open preview window
+      const previewWin = window.open("/document-preview.html", "_blank");
+      if (!previewWin) { toast.error("Popup bloqueado. Permita popups para este site."); return; }
+
+      const sendData = () => {
+        previewWin.postMessage({ title: template.nome_modelo, html }, "*");
+      };
+
+      // Wait for ready signal from the new window, with fallback
+      const handler = (event: MessageEvent) => {
+        if (event.data?.type === "ready") {
+          sendData();
+          window.removeEventListener("message", handler);
+        }
+      };
+      window.addEventListener("message", handler);
+      // Fallback after 2s
+      setTimeout(() => { sendData(); window.removeEventListener("message", handler); }, 2000);
+
+      setPrintDialogOpen(false);
+    } catch (e: any) {
+      toast.error(e.message ?? "Erro ao gerar documento.");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const feePercent = parseFloat(form.management_fee_percent) || 0;
   const rentValPreview = parseCurrency(form.rent_value) ?? 0;
   const feeValuePreview = rentValPreview * feePercent / 100;
