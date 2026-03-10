@@ -430,6 +430,8 @@ export type Database = {
           created_at: string
           due_date: string
           id: string
+          ir_deduction: number | null
+          ir_rate: number | null
           irrf_value: number | null
           management_fee_percent: number
           management_fee_value: number | null
@@ -448,6 +450,8 @@ export type Database = {
           created_at?: string
           due_date: string
           id?: string
+          ir_deduction?: number | null
+          ir_rate?: number | null
           irrf_value?: number | null
           management_fee_percent?: number
           management_fee_value?: number | null
@@ -466,6 +470,8 @@ export type Database = {
           created_at?: string
           due_date?: string
           id?: string
+          ir_deduction?: number | null
+          ir_rate?: number | null
           irrf_value?: number | null
           management_fee_percent?: number
           management_fee_value?: number | null

@@ -167,10 +167,16 @@ export default function TabelaIR() {
         const propertyId = contractMap[inst.contract_id];
         const ownerPersonType = propertyId ? (propMap[propertyId] ?? "fisica") : "fisica";
         let irrfVal = 0;
+        let appliedRate: number | null = null;
+        let appliedDeduction: number | null = null;
         if (ownerPersonType === "fisica") {
           const brackets = getBracketsForCompetence(inst.competence, allBrackets as any[]);
           const bracket = brackets.find((b: any) => taxBase >= b.range_start && (b.range_end == null || taxBase <= b.range_end));
-          if (bracket) irrfVal = Math.max(0, (taxBase * bracket.rate / 100) - bracket.deduction);
+          if (bracket) {
+            appliedRate = bracket.rate;
+            appliedDeduction = bracket.deduction;
+            irrfVal = Math.max(0, (taxBase * bracket.rate / 100) - bracket.deduction);
+          }
         }
         const ownerNet = taxBase - irrfVal;
         return supabase.from("rental_installments").update({
@@ -179,6 +185,8 @@ export default function TabelaIR() {
           irrf_value: irrfVal,
           owner_net_value: ownerNet,
           repasse_value: ownerNet,
+          ir_rate: appliedRate,
+          ir_deduction: appliedDeduction,
           updated_at: new Date().toISOString(),
         }).eq("id", inst.id);
       });
