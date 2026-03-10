@@ -421,7 +421,7 @@ export default function Clientes() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setViewDialogOpen(false)}>Fechar</Button>
             {viewClient && (
-              <Button onClick={() => { setViewDialogOpen(false); navigate(`/cadastros/clientes/${viewClient.id}/imoveis`); }}>Ver imóveis</Button>
+              <Button onClick={() => { setViewDialogOpen(false); navigate(`/cadastros/clientes/${viewClient.id}/imoveis`); }}>Ver Imóveis</Button>
             )}
           </DialogFooter>
         </DialogContent>
