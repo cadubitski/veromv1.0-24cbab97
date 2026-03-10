@@ -133,7 +133,7 @@ export default function Repasse() {
       "Locatário": r.tenant_name,
       "Imóvel": r.property_code,
       "Endereço": r.property_address,
-      "Proprietário": r.owner_name,
+      "Locador": r.owner_name,
       "Valor Aluguel": r.value,
       "Taxa Admin (%)": r.management_fee_percent,
       "Valor Admin": r.management_fee_value,
