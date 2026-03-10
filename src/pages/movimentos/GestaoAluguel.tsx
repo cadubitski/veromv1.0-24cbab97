@@ -744,17 +744,45 @@ export default function GestaoContratos() {
     if (!newVal || newVal <= 0) { toast.error("Valor inválido."); return; }
     setSavingInstValue(inst.id);
     const feeP = inst.management_fee_percent ?? 0;
+    const feeVal = newVal * feeP / 100;
+    const taxBase = newVal - feeVal;
+
+    // Recalculate IR for the new value
+    let irrfVal = 0;
+    if (managementContract) {
+      const { data: propData } = await supabase
+        .from("properties")
+        .select("clients(person_type)")
+        .eq("id", managementContract.property_id)
+        .single();
+      const ownerPersonType = (propData as any)?.clients?.person_type ?? "fisica";
+      if (ownerPersonType === "fisica") {
+        const { data: taxBrackets } = await supabase.from("income_tax_brackets").select("*").order("range_start");
+        if (taxBrackets && taxBrackets.length > 0) {
+          const bracket = (taxBrackets as any[]).find(
+            (b) => taxBase >= b.range_start && (b.range_end == null || taxBase <= b.range_end)
+          );
+          if (bracket) irrfVal = Math.max(0, (taxBase * bracket.rate / 100) - bracket.deduction);
+        }
+      }
+    }
+    const ownerNet = taxBase - irrfVal;
+
     const { error: err } = await supabase.from("rental_installments").update({
       value: newVal,
+      management_fee_value: feeVal,
+      tax_base_value: taxBase,
+      irrf_value: irrfVal,
+      owner_net_value: ownerNet,
+      repasse_value: ownerNet,
       updated_at: new Date().toISOString(),
     }).eq("id", inst.id);
     if (err) { toast.error("Erro ao atualizar valor."); }
     else {
       toast.success("Valor atualizado.");
       setInstallments((prev) => prev.map((i) => i.id === inst.id ? {
-        ...i, value: newVal,
-        management_fee_value: newVal * feeP / 100,
-        repasse_value: newVal - newVal * feeP / 100,
+        ...i, value: newVal, management_fee_value: feeVal,
+        tax_base_value: taxBase, irrf_value: irrfVal, owner_net_value: ownerNet, repasse_value: ownerNet,
       } : i));
       setEditingInstValue((p) => { const n = { ...p }; delete n[inst.id]; return n; });
     }
