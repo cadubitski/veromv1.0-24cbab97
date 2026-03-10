@@ -233,9 +233,9 @@ export default function Inquilinos() {
                   {visibleCols.has("email") && <TableCell className="text-muted-foreground text-sm">{t.email || "—"}</TableCell>}
                   {visibleCols.has("address") && <TableCell className="text-muted-foreground text-sm truncate max-w-[160px]">{t.address || "—"}</TableCell>}
                   {visibleCols.has("status") && (
-                    <TableCell><StatusDot status={t.status} /></TableCell>
+                    <TableCell className="w-[60px]"><StatusDot status={t.status} /></TableCell>
                   )}
-                  <TableCell className="text-right">
+                  <TableCell className="text-right w-[60px]">
                     <ActionGear
                       legendKeys={["ativo", "inativo"]}
                       actions={[

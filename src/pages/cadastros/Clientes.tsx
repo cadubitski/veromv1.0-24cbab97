@@ -288,9 +288,9 @@ export default function Clientes() {
                     {visibleCols.has("whatsapp") && <TableCell className="text-muted-foreground text-sm">{client.whatsapp || "—"}</TableCell>}
                     {visibleCols.has("address") && <TableCell className="text-muted-foreground text-sm truncate max-w-[160px]">{client.address || "—"}</TableCell>}
                     {visibleCols.has("status") && (
-                      <TableCell><StatusDot status={client.status} /></TableCell>
+                      <TableCell className="w-[60px]"><StatusDot status={client.status} /></TableCell>
                     )}
-                    <TableCell className="text-right">
+                    <TableCell className="text-right w-[60px]">
                       <ActionGear
                         legendKeys={["ativo", "inativo"]}
                         actions={[
