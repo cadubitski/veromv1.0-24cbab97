@@ -31,7 +31,7 @@ const userNav: NavItem[] = [
     label: "Movimentos",
     icon: TrendingUp,
     children: [
-      { label: "Gestão de Aluguel", href: "/movimentos/gestao-aluguel" },
+      { label: "Gestão de Contratos", href: "/movimentos/gestao-aluguel" },
     ],
   },
   {

@@ -36,6 +36,7 @@ interface Contract {
   company_id: string;
   tenant_id: string;
   property_id: string;
+  code: string | null;
   rent_value: number;
   start_date: string;
   due_day: number;
@@ -63,10 +64,11 @@ interface Installment {
   paid_at: string | null;
 }
 
-type SortKey = "tenant_name" | "property_code" | "rent_value" | "start_date" | "due_day" | "status";
+type SortKey = "code" | "tenant_name" | "property_code" | "rent_value" | "start_date" | "due_day" | "status";
 type SortDir = "asc" | "desc";
 
 const CONTRACT_COLUMNS: ColumnDef[] = [
+  { key: "code", label: "Código", defaultVisible: true },
   { key: "tenant_name", label: "Locatário", defaultVisible: true },
   { key: "property_code", label: "Imóvel", defaultVisible: true },
   { key: "rent_value", label: "Valor", defaultVisible: true },
@@ -82,6 +84,12 @@ const STATUS_COLORS: Record<string, string> = {
   ativo: "default",
   encerrado: "secondary",
   cancelado: "destructive",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  ativo: "Ativo",
+  encerrado: "Encerrado",
+  cancelado: "Cancelado",
 };
 
 const INST_COLORS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -187,16 +195,15 @@ function SearchableSelect({
   );
 }
 
-export default function GestaoAluguel() {
+export default function GestaoContratos() {
   const { company } = useAuth();
   const [searchParams] = useSearchParams();
-  const filterParam = searchParams.get("filter");
 
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("todos");
-  const [sortKey, setSortKey] = useState<SortKey>("tenant_name");
+  const [sortKey, setSortKey] = useState<SortKey>("code");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   // Contract dialog
@@ -207,6 +214,7 @@ export default function GestaoAluguel() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [form, setForm] = useState({
+    code: "",
     tenant_id: "",
     property_id: "",
     rent_value: "",
@@ -223,7 +231,7 @@ export default function GestaoAluguel() {
     new Set(CONTRACT_COLUMNS.filter((c) => c.defaultVisible !== false).map((c) => c.key))
   );
 
-  // Extended filters for GestaoAluguel
+  // Extended filters
   const [filterTenant, setFilterTenant] = useState("");
   const [filterProperty, setFilterProperty] = useState("");
   const [filterStartFrom, setFilterStartFrom] = useState("");
@@ -262,14 +270,12 @@ export default function GestaoAluguel() {
       supabase.from("properties").select("id, code, address, clients(full_name)"),
     ]);
 
-    // Get active contracts to know which properties are taken
     const { data: activeContracts } = await supabase
       .from("rental_contracts")
       .select("property_id")
       .eq("status", "ativo");
 
     const takenIds = new Set((activeContracts ?? []).map((c) => c.property_id));
-    // If editing, allow the current property
     if (contractId) {
       const current = contracts.find((c) => c.id === contractId);
       if (current) takenIds.delete(current.property_id);
@@ -310,14 +316,15 @@ export default function GestaoAluguel() {
       : <ChevronDown className="h-3 w-3 opacity-80 inline ml-1" />;
   };
 
-  const thClass = "cursor-pointer select-none hover:text-foreground transition-colors";
+  const thClass = "cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap";
 
   const filtered = useMemo(() => {
     let arr = contracts.filter((c) => {
       const q = search.toLowerCase();
       const name = c.tenants?.full_name?.toLowerCase() ?? "";
       const code = c.properties?.code?.toLowerCase() ?? "";
-      const matchSearch = name.includes(q) || code.includes(q);
+      const contractCode = c.code?.toLowerCase() ?? "";
+      const matchSearch = name.includes(q) || code.includes(q) || contractCode.includes(q);
       const st = statusFilter === "todos" || c.status === statusFilter;
       const matchTenant = !filterTenant || name.includes(filterTenant.toLowerCase());
       const matchProp = !filterProperty || code.includes(filterProperty.toLowerCase());
@@ -328,7 +335,8 @@ export default function GestaoAluguel() {
     });
     arr = [...arr].sort((a, b) => {
       let va = "", vb = "";
-      if (sortKey === "tenant_name") { va = a.tenants?.full_name ?? ""; vb = b.tenants?.full_name ?? ""; }
+      if (sortKey === "code") { va = a.code ?? ""; vb = b.code ?? ""; }
+      else if (sortKey === "tenant_name") { va = a.tenants?.full_name ?? ""; vb = b.tenants?.full_name ?? ""; }
       else if (sortKey === "property_code") { va = a.properties?.code ?? ""; vb = b.properties?.code ?? ""; }
       else if (sortKey === "rent_value") { return sortDir === "asc" ? a.rent_value - b.rent_value : b.rent_value - a.rent_value; }
       else if (sortKey === "start_date") { va = a.start_date; vb = b.start_date; }
@@ -337,12 +345,12 @@ export default function GestaoAluguel() {
       return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
     });
     return arr;
-  }, [contracts, search, statusFilter, sortKey, sortDir]);
+  }, [contracts, search, statusFilter, sortKey, sortDir, filterTenant, filterProperty, filterStartFrom, filterStartTo, filterDueDay]);
 
   const openCreate = async () => {
     await loadDropdowns();
     setEditContract(null);
-    setForm({ tenant_id: "", property_id: "", rent_value: "", start_date: "", due_day: "10", duration_months: "12", management_fee_percent: "0" });
+    setForm({ code: "", tenant_id: "", property_id: "", rent_value: "", start_date: "", due_day: "10", duration_months: "12", management_fee_percent: "0" });
     setFormError(null);
     setDialogOpen(true);
   };
@@ -351,6 +359,7 @@ export default function GestaoAluguel() {
     await loadDropdowns(c.id);
     setEditContract(c);
     setForm({
+      code: c.code ?? "",
       tenant_id: c.tenant_id,
       property_id: c.property_id,
       rent_value: formatMoney(c.rent_value),
@@ -365,7 +374,6 @@ export default function GestaoAluguel() {
 
   const openView = (c: Contract) => { setViewContract(c); setViewDialogOpen(true); };
 
-  // Computed fee values for form preview
   const feePercent = parseFloat(form.management_fee_percent) || 0;
   const rentValPreview = parseCurrency(form.rent_value) ?? 0;
   const feeValuePreview = rentValPreview * feePercent / 100;
@@ -383,7 +391,22 @@ export default function GestaoAluguel() {
     if (!dueDay || dueDay < 1 || dueDay > 31) { setFormError("Dia de vencimento deve ser entre 1 e 31."); return; }
     if (!durationMonths || durationMonths < 1) { setFormError("Período inválido."); return; }
     if (!company?.id) return;
-    const feePercent = parseFloat(form.management_fee_percent) || 0;
+    const feeP = parseFloat(form.management_fee_percent) || 0;
+
+    // Validate code uniqueness if provided
+    if (form.code.trim()) {
+      const query = supabase
+        .from("rental_contracts")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", company.id)
+        .eq("code", form.code.trim());
+      if (editContract) query.neq("id", editContract.id);
+      const { count: codeCount } = await query;
+      if ((codeCount ?? 0) > 0) {
+        setFormError("Já existe um contrato com este código.");
+        return;
+      }
+    }
 
     setSaving(true); setFormError(null);
     try {
@@ -391,16 +414,16 @@ export default function GestaoAluguel() {
       if (editContract) {
         const oldDueDay = editContract.due_day;
         const { error: err } = await supabase.from("rental_contracts").update({
+          code: form.code.trim() || null,
           tenant_id: form.tenant_id, property_id: form.property_id,
           rent_value: rentVal, start_date: form.start_date,
           due_day: dueDay, duration_months: durationMonths,
-          management_fee_percent: feePercent,
+          management_fee_percent: feeP,
           updated_at: new Date().toISOString(),
         }).eq("id", editContract.id);
         if (err) throw err;
         contractId = editContract.id;
 
-        // If due_day changed, update all unpaid installments
         if (dueDay !== oldDueDay) {
           const { data: unpaid } = await supabase.from("rental_installments")
             .select("id, due_date")
@@ -421,7 +444,6 @@ export default function GestaoAluguel() {
         }
         toast.success("Contrato atualizado.");
       } else {
-        // Check property not already in active contract
         const { count: taken } = await supabase.from("rental_contracts")
           .select("id", { count: "exact", head: true })
           .eq("property_id", form.property_id)
@@ -430,22 +452,21 @@ export default function GestaoAluguel() {
 
         const { data, error: err } = await supabase.from("rental_contracts").insert({
           company_id: company.id,
+          code: form.code.trim() || null,
           tenant_id: form.tenant_id,
           property_id: form.property_id,
           rent_value: rentVal,
           start_date: form.start_date,
           due_day: dueDay,
           duration_months: durationMonths,
-          management_fee_percent: feePercent,
+          management_fee_percent: feeP,
           status: "ativo",
         }).select("id").single();
         if (err) throw err;
         contractId = data.id;
 
-        // Update property status to "alugado"
         await supabase.from("properties").update({ status: "alugado" }).eq("id", form.property_id);
 
-        // Generate installments
         const startDate = parseISO(form.start_date);
         const installmentRows = [];
         for (let i = 0; i < durationMonths; i++) {
@@ -464,7 +485,7 @@ export default function GestaoAluguel() {
             competence,
             due_date: format(dueDate, "yyyy-MM-dd"),
             value: rentVal,
-            management_fee_percent: feePercent,
+            management_fee_percent: feeP,
             status: "em_aberto",
           });
         }
@@ -494,7 +515,6 @@ export default function GestaoAluguel() {
       }
       const { error: err } = await supabase.from("rental_contracts").delete().eq("id", deleteTarget.id);
       if (err) throw err;
-      // Revert property status to disponivel
       await supabase.from("properties").update({ status: "disponivel" }).eq("id", deleteTarget.property_id);
       toast.success("Contrato excluído."); setDeleteDialogOpen(false); loadContracts();
     } catch (e: any) { setBlockMessage(e.message); }
@@ -504,7 +524,6 @@ export default function GestaoAluguel() {
   const handleChangeStatus = async (c: Contract, newStatus: string) => {
     await supabase.from("rental_contracts").update({ status: newStatus }).eq("id", c.id);
     if (newStatus !== "ativo") {
-      // Revert property
       await supabase.from("properties").update({ status: "disponivel" }).eq("id", c.property_id);
     }
     loadContracts();
@@ -566,10 +585,10 @@ export default function GestaoAluguel() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Gestão de Aluguel</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Gestão de Contratos</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Contratos de locação e cronogramas de pagamento.</p>
           </div>
           <Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" /> Novo Contrato</Button>
@@ -578,7 +597,7 @@ export default function GestaoAluguel() {
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar por locatário ou código do imóvel..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            <Input placeholder="Buscar por código, locatário ou imóvel..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full sm:w-44"><SelectValue /></SelectTrigger>
@@ -628,16 +647,17 @@ export default function GestaoAluguel() {
           <Table>
             <TableHeader>
               <TableRow className="border-border/40">
+                {visibleCols.has("code") && <TableHead className={thClass} onClick={() => handleSort("code")}>Código <SortIcon col="code" /></TableHead>}
                 {visibleCols.has("tenant_name") && <TableHead className={thClass} onClick={() => handleSort("tenant_name")}>Locatário <SortIcon col="tenant_name" /></TableHead>}
                 {visibleCols.has("property_code") && <TableHead className={thClass} onClick={() => handleSort("property_code")}>Imóvel <SortIcon col="property_code" /></TableHead>}
                 {visibleCols.has("rent_value") && <TableHead className={thClass} onClick={() => handleSort("rent_value")}>Valor <SortIcon col="rent_value" /></TableHead>}
-                {visibleCols.has("management_fee") && <TableHead>Taxa Admin</TableHead>}
+                {visibleCols.has("management_fee") && <TableHead className="whitespace-nowrap">Taxa Admin</TableHead>}
                 {visibleCols.has("repasse") && <TableHead>Repasse</TableHead>}
                 {visibleCols.has("start_date") && <TableHead className={thClass} onClick={() => handleSort("start_date")}>Início <SortIcon col="start_date" /></TableHead>}
-                {visibleCols.has("due_day") && <TableHead className={thClass} onClick={() => handleSort("due_day")}>Vencimento <SortIcon col="due_day" /></TableHead>}
-                {visibleCols.has("duration_months") && <TableHead>Período</TableHead>}
+                {visibleCols.has("due_day") && <TableHead className={thClass} onClick={() => handleSort("due_day")}>Venc. <SortIcon col="due_day" /></TableHead>}
+                {visibleCols.has("duration_months") && <TableHead className="whitespace-nowrap">Período</TableHead>}
                 {visibleCols.has("status") && <TableHead className={thClass} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>}
-                <TableHead className="text-right">Ações</TableHead>
+                <TableHead className="text-right w-[120px]">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -649,29 +669,37 @@ export default function GestaoAluguel() {
                 </TableCell></TableRow>
               ) : filtered.map((c) => (
                 <TableRow key={c.id} className="border-border/40 hover:bg-muted/30 transition-colors">
-                  {visibleCols.has("tenant_name") && <TableCell className="font-medium">{c.tenants?.full_name ?? "—"}</TableCell>}
+                  {visibleCols.has("code") && (
+                    <TableCell className="font-mono text-sm font-medium">
+                      {c.code ? <span className="px-1.5 py-0.5 rounded bg-muted text-xs">{c.code}</span> : <span className="text-muted-foreground text-xs">—</span>}
+                    </TableCell>
+                  )}
+                  {visibleCols.has("tenant_name") && <TableCell className="font-medium text-sm">{c.tenants?.full_name ?? "—"}</TableCell>}
                   {visibleCols.has("property_code") && (
                     <TableCell className="text-muted-foreground text-sm">
-                      {c.properties?.code ?? "—"}{c.properties?.address ? ` – ${c.properties.address.slice(0, 25)}` : ""}
+                      <span className="font-medium text-foreground">{c.properties?.code ?? "—"}</span>
+                      {c.properties?.address ? <span className="hidden lg:inline"> – {c.properties.address.slice(0, 20)}</span> : ""}
                     </TableCell>
                   )}
                   {visibleCols.has("rent_value") && <TableCell className="text-sm font-mono">R$ {formatMoney(c.rent_value)}</TableCell>}
                   {visibleCols.has("management_fee") && <TableCell className="text-sm font-mono text-muted-foreground">{c.management_fee_percent}% · R$ {formatMoney(c.management_fee_value ?? 0)}</TableCell>}
                   {visibleCols.has("repasse") && <TableCell className="text-sm font-mono text-muted-foreground">R$ {formatMoney(c.repasse_value ?? 0)}</TableCell>}
-                  {visibleCols.has("start_date") && <TableCell className="text-muted-foreground text-sm">{format(parseISO(c.start_date), "dd/MM/yyyy")}</TableCell>}
+                  {visibleCols.has("start_date") && <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{format(parseISO(c.start_date), "dd/MM/yyyy")}</TableCell>}
                   {visibleCols.has("due_day") && <TableCell className="text-muted-foreground text-sm">Dia {c.due_day}</TableCell>}
-                  {visibleCols.has("duration_months") && <TableCell className="text-muted-foreground text-sm">{c.duration_months} meses</TableCell>}
+                  {visibleCols.has("duration_months") && <TableCell className="text-muted-foreground text-sm">{c.duration_months}m</TableCell>}
                   {visibleCols.has("status") && (
                     <TableCell>
-                      <Badge variant={(STATUS_COLORS[c.status] as any) ?? "outline"} className="text-xs capitalize">{c.status}</Badge>
+                      <Badge variant={(STATUS_COLORS[c.status] as any) ?? "outline"} className="text-xs">
+                        {STATUS_LABELS[c.status] ?? c.status}
+                      </Badge>
                     </TableCell>
                   )}
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Visualizar" onClick={() => openView(c)}><Eye className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Gerenciar parcelas" onClick={() => openManagement(c)}><FileText className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => openDelete(c)}><Trash2 className="h-4 w-4" /></Button>
+                  <TableCell className="text-right w-[120px]">
+                    <div className="flex items-center justify-end gap-0.5">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Visualizar" onClick={() => openView(c)}><Eye className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Parcelas" onClick={() => openManagement(c)}><FileText className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Editar" onClick={() => openEdit(c)}><Pencil className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive" title="Excluir" onClick={() => openDelete(c)}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -688,6 +716,9 @@ export default function GestaoAluguel() {
           {viewContract && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
+                {viewContract.code && (
+                  <div className="col-span-2"><p className="text-muted-foreground text-xs">Código do contrato</p><p className="font-mono font-medium">{viewContract.code}</p></div>
+                )}
                 <div><p className="text-muted-foreground text-xs">Locatário</p><p className="font-medium">{viewContract.tenants?.full_name ?? "—"}</p></div>
                 <div><p className="text-muted-foreground text-xs">Imóvel</p><p className="font-medium">{viewContract.properties?.code ?? "—"}</p></div>
                 <div><p className="text-muted-foreground text-xs">Endereço</p><p>{viewContract.properties?.address ?? "—"}</p></div>
@@ -699,7 +730,7 @@ export default function GestaoAluguel() {
                 <div><p className="text-muted-foreground text-xs">Taxa admin (%)</p><p>{viewContract.management_fee_percent ?? 0}%</p></div>
                 <div><p className="text-muted-foreground text-xs">Valor admin</p><p className="font-mono">R$ {formatMoney(viewContract.management_fee_value ?? 0)}</p></div>
                 <div><p className="text-muted-foreground text-xs">Valor repasse</p><p className="font-mono">R$ {formatMoney(viewContract.repasse_value ?? 0)}</p></div>
-                <div><p className="text-muted-foreground text-xs">Status</p><Badge variant={(STATUS_COLORS[viewContract.status] as any) ?? "outline"} className="text-xs capitalize">{viewContract.status}</Badge></div>
+                <div><p className="text-muted-foreground text-xs">Status</p><Badge variant={(STATUS_COLORS[viewContract.status] as any) ?? "outline"} className="text-xs">{STATUS_LABELS[viewContract.status] ?? viewContract.status}</Badge></div>
               </div>
               {viewContract.status === "ativo" && (
                 <div className="flex gap-2 pt-2 border-t border-border/40">
@@ -716,10 +747,19 @@ export default function GestaoAluguel() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg flex flex-col max-h-[90vh]">
           <DialogHeader className="shrink-0">
-            <DialogTitle>{editContract ? "Editar contrato" : "Novo contrato de aluguel"}</DialogTitle>
+            <DialogTitle>{editContract ? "Editar contrato" : "Novo contrato"}</DialogTitle>
             <DialogDescription>{editContract ? "Atualize os dados do contrato." : "Preencha os dados para criar um novo contrato."}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2 overflow-y-auto flex-1 pr-1">
+            <div className="space-y-2">
+              <FieldLabel label="Código do contrato" tooltip="Código de identificação do contrato (ex: CT-001). Deve ser único." />
+              <Input
+                value={form.code}
+                onChange={(e) => setForm((p) => ({ ...p, code: e.target.value }))}
+                placeholder="Ex: CT-001"
+                maxLength={50}
+              />
+            </div>
             <div className="space-y-2">
               <FieldLabel label="Locatário" tooltip="Selecione o locatário que irá locar o imóvel." required />
               <SearchableSelect
@@ -840,7 +880,7 @@ export default function GestaoAluguel() {
                     return (
                       <TableRow key={inst.id} className="border-border/40">
                         <TableCell className="font-mono text-sm">{inst.competence}</TableCell>
-                        <TableCell className="text-sm">{format(parseISO(inst.due_date + "T00:00:00"), "dd/MM/yyyy")}</TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">{format(parseISO(inst.due_date + "T00:00:00"), "dd/MM/yyyy")}</TableCell>
                         <TableCell className="font-mono text-sm">
                           {inst.status !== "pago" && isEditing ? (
                             <div className="flex items-center gap-1">
@@ -874,7 +914,7 @@ export default function GestaoAluguel() {
                         </TableCell>
                         <TableCell>
                           {inst.status === "pago" ? (
-                            <span className="text-sm text-muted-foreground">{inst.paid_at ? format(parseISO(inst.paid_at + "T00:00:00"), "dd/MM/yyyy") : "—"}</span>
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">{inst.paid_at ? format(parseISO(inst.paid_at + "T00:00:00"), "dd/MM/yyyy") : "—"}</span>
                           ) : (
                             <Input
                               type="date"
