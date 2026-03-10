@@ -32,18 +32,20 @@ export default function Financeiro() {
 
   const fetchBilling = async () => {
     if (!user || !company) return;
+    // Usa o email da empresa (quem assinou), não o email do usuário logado
+    const billingEmail = company.email ?? user.email ?? "";
     setLoadingBilling(true);
     setError("");
     try {
       const { data, error: fnError } = await supabase.functions.invoke("get-billing-status", {
-        body: { customer_email: user.email ?? "" },
+        body: { customer_email: billingEmail },
       });
 
       if (fnError) throw new Error(fnError.message);
 
       setBilling({
         status: data?.status ?? null,
-        customer_email: user.email ?? "",
+        customer_email: billingEmail,
         saas_key: data?.saas_key ?? "verom",
       });
     } catch {
