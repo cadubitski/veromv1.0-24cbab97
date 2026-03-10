@@ -1077,7 +1077,9 @@ export default function GestaoContratos() {
                     <TableHead>Vencimento</TableHead>
                     <TableHead>Valor</TableHead>
                     <TableHead className="hidden md:table-cell">Tx. Admin</TableHead>
-                    <TableHead className="hidden md:table-cell">Repasse</TableHead>
+                    <TableHead className="hidden lg:table-cell">Base IR</TableHead>
+                    <TableHead className="hidden lg:table-cell">IRRF</TableHead>
+                    <TableHead className="hidden md:table-cell">Repasse Líquido</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Pagamento</TableHead>
                     <TableHead className="text-right">Ação</TableHead>
@@ -1089,7 +1091,9 @@ export default function GestaoContratos() {
                     const isEditing = editingInstValue[inst.id] !== undefined;
                     const feeP = inst.management_fee_percent ?? 0;
                     const feeV = inst.management_fee_value ?? (inst.value * feeP / 100);
-                    const rep = inst.repasse_value ?? (inst.value - feeV);
+                    const taxBase = inst.tax_base_value ?? (inst.value - feeV);
+                    const irrfV = inst.irrf_value ?? 0;
+                    const ownerNet = inst.owner_net_value ?? inst.repasse_value ?? (taxBase - irrfV);
                     return (
                       <TableRow key={inst.id} className="border-border/40">
                         <TableCell className="font-mono text-sm">{inst.competence}</TableCell>
@@ -1119,7 +1123,14 @@ export default function GestaoContratos() {
                           )}
                         </TableCell>
                         <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">R$ {formatMoney(feeV)}</TableCell>
-                        <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">R$ {formatMoney(rep)}</TableCell>
+                        <TableCell className="hidden lg:table-cell font-mono text-xs text-muted-foreground">R$ {formatMoney(taxBase)}</TableCell>
+                        <TableCell className="hidden lg:table-cell font-mono text-xs">
+                          {irrfV > 0
+                            ? <span className="text-destructive/80">R$ {formatMoney(irrfV)}</span>
+                            : <span className="text-muted-foreground">—</span>
+                          }
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell font-mono text-xs font-medium">R$ {formatMoney(ownerNet)}</TableCell>
                         <TableCell>
                           <StatusDot status={resolvedStatus} />
                         </TableCell>
