@@ -331,7 +331,7 @@ export default function Clientes() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <FieldLabel label="Status" tooltip="Define se este cliente está ativo no sistema." required />
+                <FieldLabel label="Status" tooltip="Define se este locador está ativo no sistema." required />
                 <Select value={form.status} onValueChange={(v) => f("status", v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
