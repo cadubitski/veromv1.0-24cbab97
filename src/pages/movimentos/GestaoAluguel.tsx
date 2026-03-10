@@ -196,6 +196,45 @@ function SearchableSelect({
   );
 }
 
+interface DocumentTemplate {
+  id: string;
+  nome_modelo: string;
+  descricao: string | null;
+  conteudo_markdown: string;
+  entidades_utilizadas: string[];
+}
+
+// Simple markdown-to-HTML converter
+function markdownToHtml(md: string): string {
+  let html = md
+    // Headings
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    // Bold
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    // Italic
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // HR
+    .replace(/^---$/gm, '<hr/>')
+    // Unordered list items
+    .replace(/^\- (.+)$/gm, '<li>$1</li>')
+    // Wrap consecutive <li> in <ul>
+    .replace(/(<li>.*<\/li>(\n|$))+/g, (match) => `<ul>${match}</ul>`)
+    // Line breaks to paragraphs (double newline)
+    .split(/\n\n+/)
+    .map((block) => {
+      if (/^<(h[1-3]|ul|hr|li)/.test(block.trim())) return block;
+      return `<p>${block.replace(/\n/g, '<br/>')}</p>`;
+    })
+    .join('\n');
+  return html;
+}
+
+function formatMoney(v: number) {
+  return v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export default function GestaoContratos() {
   const { company } = useAuth();
   const [searchParams] = useSearchParams();
@@ -255,6 +294,14 @@ export default function GestaoContratos() {
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
   const [editingInstValue, setEditingInstValue] = useState<Record<string, string>>({});
   const [savingInstValue, setSavingInstValue] = useState<string | null>(null);
+
+  // Print / template
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [printContract, setPrintContract] = useState<Contract | null>(null);
+  const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [generating, setGenerating] = useState(false);
 
   const loadContracts = async () => {
     setLoading(true);
