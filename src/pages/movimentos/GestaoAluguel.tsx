@@ -78,6 +78,7 @@ type SortDir = "asc" | "desc";
 
 const CONTRACT_COLUMNS: ColumnDef[] = [
   { key: "code", label: "Código", defaultVisible: true },
+  { key: "owner_name", label: "Proprietário", defaultVisible: true },
   { key: "tenant_name", label: "Locatário", defaultVisible: true },
   { key: "property_code", label: "Imóvel", defaultVisible: true },
   { key: "rent_value", label: "Valor", defaultVisible: true },
@@ -909,6 +910,7 @@ export default function GestaoContratos() {
             <TableHeader>
               <TableRow className="border-border/40">
                 {visibleCols.has("code") && <TableHead className={thClass} onClick={() => handleSort("code")}>Código <SortIcon col="code" /></TableHead>}
+                {visibleCols.has("owner_name") && <TableHead className="whitespace-nowrap">Proprietário</TableHead>}
                 {visibleCols.has("tenant_name") && <TableHead className={thClass} onClick={() => handleSort("tenant_name")}>Locatário <SortIcon col="tenant_name" /></TableHead>}
                 {visibleCols.has("property_code") && <TableHead className={thClass} onClick={() => handleSort("property_code")}>Imóvel <SortIcon col="property_code" /></TableHead>}
                 {visibleCols.has("rent_value") && <TableHead className={thClass} onClick={() => handleSort("rent_value")}>Valor <SortIcon col="rent_value" /></TableHead>}
@@ -935,6 +937,7 @@ export default function GestaoContratos() {
                       {c.code ? <span className="px-1.5 py-0.5 rounded bg-muted text-xs">{c.code}</span> : <span className="text-muted-foreground text-xs">—</span>}
                     </TableCell>
                   )}
+                  {visibleCols.has("owner_name") && <TableCell className="text-sm text-muted-foreground">{c.properties?.clients?.full_name ?? "—"}</TableCell>}
                   {visibleCols.has("tenant_name") && <TableCell className="font-medium text-sm">{c.tenants?.full_name ?? "—"}</TableCell>}
                   {visibleCols.has("property_code") && (
                     <TableCell className="text-muted-foreground text-sm">
