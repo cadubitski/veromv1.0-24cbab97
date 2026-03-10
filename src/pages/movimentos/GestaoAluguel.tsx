@@ -803,8 +803,8 @@ export default function GestaoContratos() {
                 {visibleCols.has("start_date") && <TableHead className={thClass} onClick={() => handleSort("start_date")}>Início <SortIcon col="start_date" /></TableHead>}
                 {visibleCols.has("due_day") && <TableHead className={thClass} onClick={() => handleSort("due_day")}>Venc. <SortIcon col="due_day" /></TableHead>}
                 {visibleCols.has("duration_months") && <TableHead className="whitespace-nowrap">Período</TableHead>}
-                {visibleCols.has("status") && <TableHead className={thClass} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>}
-                <TableHead className="text-right w-[120px]">Ações</TableHead>
+                {visibleCols.has("status") && <TableHead className={`${thClass} w-[60px]`} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>}
+                <TableHead className="text-right w-[60px]">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

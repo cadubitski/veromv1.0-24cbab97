@@ -361,8 +361,8 @@ export default function Imoveis() {
                 {visibleCols.has("rent_value") && <TableHead>Aluguel</TableHead>}
                 {visibleCols.has("sale_value") && <TableHead>Venda</TableHead>}
                 {visibleCols.has("area_m2") && <TableHead>Área</TableHead>}
-                {visibleCols.has("status") && <TableHead className={thClass} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>}
-                <TableHead className="text-right">Ações</TableHead>
+                {visibleCols.has("status") && <TableHead className={`${thClass} w-[60px]`} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>}
+                <TableHead className="text-right w-[60px]">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
