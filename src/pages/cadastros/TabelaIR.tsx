@@ -26,10 +26,11 @@ interface TaxBracket {
   range_end: number | null;
   rate: number;
   deduction: number;
+  valid_from_date: string;
   created_at: string;
 }
 
-type SortKey = "range_start" | "rate";
+type SortKey = "range_start" | "rate" | "valid_from_date";
 type SortDir = "asc" | "desc";
 
 const EMPTY_FORM = {
@@ -37,6 +38,7 @@ const EMPTY_FORM = {
   range_end: "",
   rate: "",
   deduction: "",
+  valid_from_date: "",
 };
 
 function formatMoney(v: number) {
@@ -101,6 +103,7 @@ export default function TabelaIR() {
       range_end: b.range_end != null ? String(b.range_end) : "",
       rate: String(b.rate),
       deduction: String(b.deduction),
+      valid_from_date: b.valid_from_date ?? "",
     });
     setError(null);
     setDialogOpen(true);
@@ -108,11 +111,89 @@ export default function TabelaIR() {
 
   const openDelete = (b: TaxBracket) => { setDeleteTarget(b); setDeleteDialogOpen(true); };
 
+  // Recalculate all unpaid installments using the updated tax brackets
+  const recalcUnpaidInstallments = async () => {
+    if (!company?.id) return;
+    try {
+      // Fetch all unpaid installments for this company
+      const { data: unpaidInsts } = await supabase
+        .from("rental_installments")
+        .select("id, contract_id, competence, value, management_fee_percent, status")
+        .eq("company_id", company.id)
+        .neq("status", "pago");
+      if (!unpaidInsts || unpaidInsts.length === 0) return;
+
+      // Fetch updated brackets
+      const { data: allBrackets } = await supabase
+        .from("income_tax_brackets")
+        .select("*")
+        .eq("company_id", company.id);
+      if (!allBrackets) return;
+
+      // Fetch contracts with property owner type
+      const contractIds = [...new Set(unpaidInsts.map((i: any) => i.contract_id))];
+      const { data: contracts } = await supabase
+        .from("rental_contracts")
+        .select("id, property_id")
+        .in("id", contractIds);
+      if (!contracts) return;
+
+      const propertyIds = [...new Set(contracts.map((c: any) => c.property_id))];
+      const { data: props } = await supabase
+        .from("properties")
+        .select("id, clients(person_type)")
+        .in("id", propertyIds);
+      const propMap: Record<string, string> = {};
+      (props ?? []).forEach((p: any) => { propMap[p.id] = p.clients?.person_type ?? "fisica"; });
+      const contractMap: Record<string, string> = {};
+      (contracts ?? []).forEach((c: any) => { contractMap[c.id] = c.property_id; });
+
+      const getBracketsForCompetence = (competence: string, brackets: any[]): any[] => {
+        if (!brackets || brackets.length === 0) return [];
+        const [month, year] = competence.split("/");
+        const compDate = `${year}-${month}-01`;
+        const sorted = [...brackets].sort((a, b) =>
+          (b.valid_from_date ?? "2000-01-01").localeCompare(a.valid_from_date ?? "2000-01-01")
+        );
+        const latestValidDate = sorted.find((b) => (b.valid_from_date ?? "2000-01-01") <= compDate)?.valid_from_date;
+        if (!latestValidDate) return [];
+        return brackets.filter((b) => (b.valid_from_date ?? "2000-01-01") === latestValidDate);
+      };
+
+      const updates = (unpaidInsts as any[]).map((inst) => {
+        const feeP = inst.management_fee_percent ?? 0;
+        const feeVal = inst.value * feeP / 100;
+        const taxBase = inst.value - feeVal;
+        const propertyId = contractMap[inst.contract_id];
+        const ownerPersonType = propertyId ? (propMap[propertyId] ?? "fisica") : "fisica";
+        let irrfVal = 0;
+        if (ownerPersonType === "fisica") {
+          const brackets = getBracketsForCompetence(inst.competence, allBrackets as any[]);
+          const bracket = brackets.find((b: any) => taxBase >= b.range_start && (b.range_end == null || taxBase <= b.range_end));
+          if (bracket) irrfVal = Math.max(0, (taxBase * bracket.rate / 100) - bracket.deduction);
+        }
+        const ownerNet = taxBase - irrfVal;
+        return supabase.from("rental_installments").update({
+          management_fee_value: feeVal,
+          tax_base_value: taxBase,
+          irrf_value: irrfVal,
+          owner_net_value: ownerNet,
+          repasse_value: ownerNet,
+          updated_at: new Date().toISOString(),
+        }).eq("id", inst.id);
+      });
+      await Promise.all(updates);
+    } catch (e) {
+      console.error("Erro ao recalcular parcelas:", e);
+    }
+  };
+
   const handleSave = async () => {
     const rangeStart = parseFloat(form.range_start.replace(",", "."));
     const rangeEnd = form.range_end.trim() ? parseFloat(form.range_end.replace(",", ".")) : null;
     const rate = parseFloat(form.rate.replace(",", "."));
     const deduction = parseFloat(form.deduction.replace(",", ".") || "0");
+    if (!form.valid_from_date.trim()) { setError("Data de vigência é obrigatória."); return; }
 
     if (isNaN(rangeStart) || rangeStart < 0) { setError("Início da faixa inválido."); return; }
     if (rangeEnd !== null && (isNaN(rangeEnd) || rangeEnd <= rangeStart)) { setError("Fim da faixa deve ser maior que o início."); return; }
@@ -122,7 +203,7 @@ export default function TabelaIR() {
 
     setSaving(true); setError(null);
     try {
-      const payload = { range_start: rangeStart, range_end: rangeEnd, rate, deduction };
+      const payload = { range_start: rangeStart, range_end: rangeEnd, rate, deduction, valid_from_date: form.valid_from_date };
       if (editBracket) {
         const { error: err } = await supabase.from("income_tax_brackets").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editBracket.id);
         if (err) throw err;
@@ -133,7 +214,10 @@ export default function TabelaIR() {
         toast.success("Faixa criada com sucesso.");
       }
       setDialogOpen(false);
-      load();
+      await load();
+      // Recalc unpaid installments after brackets change
+      await recalcUnpaidInstallments();
+      toast.info("Parcelas em aberto recalculadas com a nova vigência.");
     } catch (e: any) { setError(e.message); }
     finally { setSaving(false); }
   };
@@ -181,6 +265,9 @@ export default function TabelaIR() {
             <Table>
               <TableHeader>
                 <TableRow className="border-border/40">
+                  <TableHead className={thClass} onClick={() => handleSort("valid_from_date")}>
+                    Vigência a partir de <SortIcon col="valid_from_date" />
+                  </TableHead>
                   <TableHead className={thClass} onClick={() => handleSort("range_start")}>
                     Início da Faixa (R$) <SortIcon col="range_start" />
                   </TableHead>
@@ -195,12 +282,17 @@ export default function TabelaIR() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-12">
+                    <TableCell colSpan={6} className="text-center py-12">
                       <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
                     </TableCell>
                   </TableRow>
                 ) : sorted.map((b) => (
                   <TableRow key={b.id} className="border-border/40 hover:bg-muted/30 transition-colors">
+                    <TableCell className="text-sm font-medium">
+                      {b.valid_from_date
+                        ? new Date(b.valid_from_date + "T00:00:00").toLocaleDateString("pt-BR")
+                        : <span className="text-muted-foreground italic">—</span>}
+                    </TableCell>
                     <TableCell className="font-mono text-sm">R$ {formatMoney(b.range_start)}</TableCell>
                     <TableCell className="font-mono text-sm text-muted-foreground">
                       {b.range_end != null ? `R$ ${formatMoney(b.range_end)}` : <span className="italic">Acima (sem limite)</span>}
@@ -226,7 +318,7 @@ export default function TabelaIR() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{editBracket ? "Editar faixa" : "Nova faixa de IR"}</DialogTitle>
             <DialogDescription>
@@ -236,6 +328,18 @@ export default function TabelaIR() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <FieldLabel
+                label="Vigência a partir de"
+                tooltip="Data a partir da qual esta tabela de IR entra em vigor. O sistema usará automaticamente a vigência mais recente compatível com a competência de cada parcela."
+                required
+              />
+              <Input
+                type="date"
+                value={form.valid_from_date}
+                onChange={(e) => f("valid_from_date", e.target.value)}
+              />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <FieldLabel
