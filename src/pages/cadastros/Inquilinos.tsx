@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, Search, Eye, Pencil, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { StatusDot, ActionGear } from "@/components/TableActions";
 import { toast } from "sonner";

@@ -19,6 +19,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, Search, Pencil, Trash2, ArrowLeft, Home, ChevronUp, ChevronDown } from "lucide-react";
 import { StatusDot, ActionGear } from "@/components/TableActions";
 import ColumnSelector, { ColumnDef } from "@/components/ColumnSelector";
