@@ -485,7 +485,7 @@ export default function GestaoContratos() {
       // Replace all known tags
       let content = template.conteudo_markdown;
       for (const [tag, value] of Object.entries(replacements)) {
-        content = content.replaceAll(tag, value);
+        content = content.split(tag).join(value);
       }
       // Highlight unresolved tags
       content = content.replace(/\{\{[^}]+\}\}/g, (match) =>
