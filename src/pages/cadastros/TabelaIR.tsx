@@ -26,10 +26,11 @@ interface TaxBracket {
   range_end: number | null;
   rate: number;
   deduction: number;
+  valid_from_date: string;
   created_at: string;
 }
 
-type SortKey = "range_start" | "rate";
+type SortKey = "range_start" | "rate" | "valid_from_date";
 type SortDir = "asc" | "desc";
 
 const EMPTY_FORM = {
@@ -37,6 +38,7 @@ const EMPTY_FORM = {
   range_end: "",
   rate: "",
   deduction: "",
+  valid_from_date: "",
 };
 
 function formatMoney(v: number) {
