@@ -59,8 +59,11 @@ interface Installment {
   due_date: string;
   value: number;
   management_fee_percent: number;
-  management_fee_value: number;
-  repasse_value: number;
+  management_fee_value: number | null;
+  repasse_value: number | null;
+  tax_base_value: number | null;
+  irrf_value: number | null;
+  owner_net_value: number | null;
   status: string;
   paid_at: string | null;
 }
@@ -614,6 +617,35 @@ export default function GestaoContratos() {
 
         await supabase.from("properties").update({ status: "alugado" }).eq("id", form.property_id);
 
+        // Fetch property owner type and tax brackets for IR calculation
+        const { data: propData } = await supabase
+          .from("properties")
+          .select("clients(person_type)")
+          .eq("id", form.property_id)
+          .single();
+        const ownerPersonType = (propData as any)?.clients?.person_type ?? "fisica";
+
+        const { data: taxBrackets } = await supabase
+          .from("income_tax_brackets")
+          .select("*")
+          .order("range_start");
+
+        const calcIR = (rentValue: number): { feeVal: number; taxBase: number; irrfVal: number; ownerNet: number; repasseVal: number } => {
+          const feeVal = rentValue * feeP / 100;
+          const taxBase = rentValue - feeVal;
+          let irrfVal = 0;
+          if (ownerPersonType === "fisica" && taxBrackets && taxBrackets.length > 0) {
+            const bracket = (taxBrackets as any[]).find(
+              (b) => taxBase >= b.range_start && (b.range_end == null || taxBase <= b.range_end)
+            );
+            if (bracket) {
+              irrfVal = Math.max(0, (taxBase * bracket.rate / 100) - bracket.deduction);
+            }
+          }
+          const ownerNet = taxBase - irrfVal;
+          return { feeVal, taxBase, irrfVal, ownerNet, repasseVal: ownerNet };
+        };
+
         const startDate = parseISO(form.start_date);
         const installmentRows = [];
         for (let i = 0; i < durationMonths; i++) {
@@ -626,6 +658,7 @@ export default function GestaoContratos() {
             dueDate = setDate(monthDate, Math.min(dueDay, lastDay));
           }
           const competence = format(monthDate, "MM/yyyy");
+          const ir = calcIR(rentVal);
           installmentRows.push({
             company_id: company.id,
             contract_id: contractId,
@@ -633,6 +666,11 @@ export default function GestaoContratos() {
             due_date: format(dueDate, "yyyy-MM-dd"),
             value: rentVal,
             management_fee_percent: feeP,
+            management_fee_value: ir.feeVal,
+            tax_base_value: ir.taxBase,
+            irrf_value: ir.irrfVal,
+            owner_net_value: ir.ownerNet,
+            repasse_value: ir.repasseVal,
             status: "em_aberto",
           });
         }
@@ -706,17 +744,45 @@ export default function GestaoContratos() {
     if (!newVal || newVal <= 0) { toast.error("Valor inválido."); return; }
     setSavingInstValue(inst.id);
     const feeP = inst.management_fee_percent ?? 0;
+    const feeVal = newVal * feeP / 100;
+    const taxBase = newVal - feeVal;
+
+    // Recalculate IR for the new value
+    let irrfVal = 0;
+    if (managementContract) {
+      const { data: propData } = await supabase
+        .from("properties")
+        .select("clients(person_type)")
+        .eq("id", managementContract.property_id)
+        .single();
+      const ownerPersonType = (propData as any)?.clients?.person_type ?? "fisica";
+      if (ownerPersonType === "fisica") {
+        const { data: taxBrackets } = await supabase.from("income_tax_brackets").select("*").order("range_start");
+        if (taxBrackets && taxBrackets.length > 0) {
+          const bracket = (taxBrackets as any[]).find(
+            (b) => taxBase >= b.range_start && (b.range_end == null || taxBase <= b.range_end)
+          );
+          if (bracket) irrfVal = Math.max(0, (taxBase * bracket.rate / 100) - bracket.deduction);
+        }
+      }
+    }
+    const ownerNet = taxBase - irrfVal;
+
     const { error: err } = await supabase.from("rental_installments").update({
       value: newVal,
+      management_fee_value: feeVal,
+      tax_base_value: taxBase,
+      irrf_value: irrfVal,
+      owner_net_value: ownerNet,
+      repasse_value: ownerNet,
       updated_at: new Date().toISOString(),
     }).eq("id", inst.id);
     if (err) { toast.error("Erro ao atualizar valor."); }
     else {
       toast.success("Valor atualizado.");
       setInstallments((prev) => prev.map((i) => i.id === inst.id ? {
-        ...i, value: newVal,
-        management_fee_value: newVal * feeP / 100,
-        repasse_value: newVal - newVal * feeP / 100,
+        ...i, value: newVal, management_fee_value: feeVal,
+        tax_base_value: taxBase, irrf_value: irrfVal, owner_net_value: ownerNet, repasse_value: ownerNet,
       } : i));
       setEditingInstValue((p) => { const n = { ...p }; delete n[inst.id]; return n; });
     }
@@ -1011,7 +1077,9 @@ export default function GestaoContratos() {
                     <TableHead>Vencimento</TableHead>
                     <TableHead>Valor</TableHead>
                     <TableHead className="hidden md:table-cell">Tx. Admin</TableHead>
-                    <TableHead className="hidden md:table-cell">Repasse</TableHead>
+                    <TableHead className="hidden lg:table-cell">Base IR</TableHead>
+                    <TableHead className="hidden lg:table-cell">IRRF</TableHead>
+                    <TableHead className="hidden md:table-cell">Repasse Líquido</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Pagamento</TableHead>
                     <TableHead className="text-right">Ação</TableHead>
@@ -1023,7 +1091,9 @@ export default function GestaoContratos() {
                     const isEditing = editingInstValue[inst.id] !== undefined;
                     const feeP = inst.management_fee_percent ?? 0;
                     const feeV = inst.management_fee_value ?? (inst.value * feeP / 100);
-                    const rep = inst.repasse_value ?? (inst.value - feeV);
+                    const taxBase = inst.tax_base_value ?? (inst.value - feeV);
+                    const irrfV = inst.irrf_value ?? 0;
+                    const ownerNet = inst.owner_net_value ?? inst.repasse_value ?? (taxBase - irrfV);
                     return (
                       <TableRow key={inst.id} className="border-border/40">
                         <TableCell className="font-mono text-sm">{inst.competence}</TableCell>
@@ -1053,7 +1123,14 @@ export default function GestaoContratos() {
                           )}
                         </TableCell>
                         <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">R$ {formatMoney(feeV)}</TableCell>
-                        <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">R$ {formatMoney(rep)}</TableCell>
+                        <TableCell className="hidden lg:table-cell font-mono text-xs text-muted-foreground">R$ {formatMoney(taxBase)}</TableCell>
+                        <TableCell className="hidden lg:table-cell font-mono text-xs">
+                          {irrfV > 0
+                            ? <span className="text-destructive/80">R$ {formatMoney(irrfV)}</span>
+                            : <span className="text-muted-foreground">—</span>
+                          }
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell font-mono text-xs font-medium">R$ {formatMoney(ownerNet)}</TableCell>
                         <TableCell>
                           <StatusDot status={resolvedStatus} />
                         </TableCell>

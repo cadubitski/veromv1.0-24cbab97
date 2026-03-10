@@ -144,6 +144,47 @@ export type Database = {
           },
         ]
       }
+      income_tax_brackets: {
+        Row: {
+          company_id: string
+          created_at: string
+          deduction: number
+          id: string
+          range_end: number | null
+          range_start: number
+          rate: number
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          deduction?: number
+          id?: string
+          range_end?: number | null
+          range_start?: number
+          rate?: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          deduction?: number
+          id?: string
+          range_end?: number | null
+          range_start?: number
+          rate?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "income_tax_brackets_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           address: string | null
@@ -386,11 +427,14 @@ export type Database = {
           created_at: string
           due_date: string
           id: string
+          irrf_value: number | null
           management_fee_percent: number
           management_fee_value: number | null
+          owner_net_value: number | null
           paid_at: string | null
           repasse_value: number | null
           status: string
+          tax_base_value: number | null
           updated_at: string
           value: number
         }
@@ -401,11 +445,14 @@ export type Database = {
           created_at?: string
           due_date: string
           id?: string
+          irrf_value?: number | null
           management_fee_percent?: number
           management_fee_value?: number | null
+          owner_net_value?: number | null
           paid_at?: string | null
           repasse_value?: number | null
           status?: string
+          tax_base_value?: number | null
           updated_at?: string
           value: number
         }
@@ -416,11 +463,14 @@ export type Database = {
           created_at?: string
           due_date?: string
           id?: string
+          irrf_value?: number | null
           management_fee_percent?: number
           management_fee_value?: number | null
+          owner_net_value?: number | null
           paid_at?: string | null
           repasse_value?: number | null
           status?: string
+          tax_base_value?: number | null
           updated_at?: string
           value?: number
         }

@@ -18,6 +18,7 @@ import GestaoAluguel from "./pages/movimentos/GestaoAluguel";
 import Repasse from "./pages/relatorios/Repasse";
 import ModelosDocumentos from "./pages/documentos/ModelosDocumentos";
 import EditorModelo from "./pages/documentos/EditorModelo";
+import TabelaIR from "./pages/cadastros/TabelaIR";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -46,6 +47,7 @@ const App = () => (
             <Route path="/cadastros/clientes/:clientId/imoveis" element={<ProtectedRoute><Imoveis /></ProtectedRoute>} />
             <Route path="/cadastros/imoveis" element={<ProtectedRoute><Imoveis /></ProtectedRoute>} />
             <Route path="/cadastros/inquilinos" element={<ProtectedRoute><Inquilinos /></ProtectedRoute>} />
+            <Route path="/cadastros/tabela-ir" element={<ProtectedRoute><TabelaIR /></ProtectedRoute>} />
             <Route path="/movimentos/gestao-aluguel" element={<ProtectedRoute><GestaoAluguel /></ProtectedRoute>} />
             <Route path="/relatorios/repasse" element={<ProtectedRoute><Repasse /></ProtectedRoute>} />
             <Route path="/documentos/modelos" element={<ProtectedRoute><ModelosDocumentos /></ProtectedRoute>} />
