@@ -104,24 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, sess) => {
-      setSession(sess);
-      setUser(sess?.user ?? null);
-      if (sess?.user) {
-        // Busca dados do usuário primeiro para obter o email da empresa
-        setTimeout(async () => {
-          const companyEmail = await fetchUserData(sess.user.id);
-          if (companyEmail) await fetchBillingStatus(companyEmail);
-        }, 0);
-      } else {
-        setProfile(null);
-        setCompany(null);
-        setRole(null);
-        setBillingStatus(null);
-      }
-      setLoading(false);
-    });
-
+    // Carrega a sessão inicial sem depender do onAuthStateChange
     supabase.auth.getSession().then(({ data: { session: sess } }) => {
       setSession(sess);
       setUser(sess?.user ?? null);
@@ -131,6 +114,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
         });
       } else {
+        setLoading(false);
+      }
+    });
+
+    // Só reage a eventos relevantes: login e logout
+    // TOKEN_REFRESHED (disparado ao voltar à aba) é ignorado intencionalmente
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, sess) => {
+      if (event === "TOKEN_REFRESHED") return; // evita reload ao voltar à aba
+
+      setSession(sess);
+      setUser(sess?.user ?? null);
+
+      if (event === "SIGNED_IN" && sess?.user) {
+        setTimeout(async () => {
+          const companyEmail = await fetchUserData(sess.user.id);
+          if (companyEmail) await fetchBillingStatus(companyEmail);
+          setLoading(false);
+        }, 0);
+      } else if (event === "SIGNED_OUT") {
+        setProfile(null);
+        setCompany(null);
+        setRole(null);
+        setBillingStatus(null);
         setLoading(false);
       }
     });
