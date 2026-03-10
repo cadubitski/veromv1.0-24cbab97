@@ -1113,6 +1113,65 @@ export default function GestaoContratos() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Print / Generate Document Dialog */}
+      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Imprimir Contrato</DialogTitle>
+            <DialogDescription>
+              Selecione um modelo de documento para gerar o contrato de{" "}
+              <strong>{printContract?.tenants?.full_name}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {loadingTemplates ? (
+              <div className="flex justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : templates.length === 0 ? (
+              <div className="rounded-lg border border-border/50 bg-muted/20 p-4 text-sm text-muted-foreground text-center">
+                Nenhum modelo cadastrado. Acesse{" "}
+                <a href="/documentos/modelos" className="text-primary underline">Documentos → Modelos</a>{" "}
+                para criar um modelo.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Escolha o modelo</p>
+                <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                  {templates.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setSelectedTemplateId(t.id)}
+                      className={`w-full text-left rounded-lg border px-3 py-2.5 transition-colors ${
+                        selectedTemplateId === t.id
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border/50 hover:bg-muted/40"
+                      }`}
+                    >
+                      <p className="text-sm font-medium">{t.nome_modelo}</p>
+                      {t.descricao && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{t.descricao}</p>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPrintDialogOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={handleGenerateDocument}
+              disabled={!selectedTemplateId || generating}
+              className="gap-2"
+            >
+              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+              Gerar documento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
