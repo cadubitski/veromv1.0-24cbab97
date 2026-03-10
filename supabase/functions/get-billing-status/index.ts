@@ -48,8 +48,13 @@ Deno.serve(async (req) => {
     if (!res.ok) {
       const body = await res.text();
       console.error(`billing-core status query failed: ${res.status} — ${body}`);
+
+      // 403 = assinatura inativa/cancelada → retorna "canceled" para bloquear acesso
+      // Outros erros (5xx, rede) → retorna null para não bloquear por falha técnica
+      const billingStatus = res.status === 403 ? "canceled" : null;
+
       return new Response(
-        JSON.stringify({ status: null }),
+        JSON.stringify({ status: billingStatus }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
