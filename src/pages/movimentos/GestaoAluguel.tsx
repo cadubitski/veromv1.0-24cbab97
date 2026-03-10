@@ -21,6 +21,9 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import {
+  Tooltip, TooltipContent, TooltipTrigger, TooltipProvider,
+} from "@/components/ui/tooltip";
+import {
   Loader2, Plus, Search, Pencil, Trash2, ChevronDown, ChevronUp, FileText, CheckCircle2, Eye, Filter, Printer,
 } from "lucide-react";
 import ColumnSelector, { ColumnDef } from "@/components/ColumnSelector";
@@ -1127,6 +1130,8 @@ export default function GestaoContratos() {
                     <TableHead>Valor</TableHead>
                     <TableHead className="hidden md:table-cell">Tx. Admin</TableHead>
                     <TableHead className="hidden lg:table-cell">Base IR</TableHead>
+                    <TableHead className="hidden lg:table-cell whitespace-nowrap">Alíquota IR</TableHead>
+                    <TableHead className="hidden lg:table-cell whitespace-nowrap">Dedução IR</TableHead>
                     <TableHead className="hidden lg:table-cell">IRRF</TableHead>
                     <TableHead className="hidden md:table-cell">Repasse Líquido</TableHead>
                     <TableHead>Status</TableHead>
@@ -1173,13 +1178,34 @@ export default function GestaoContratos() {
                         </TableCell>
                         <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">R$ {formatMoney(feeV)}</TableCell>
                         <TableCell className="hidden lg:table-cell font-mono text-xs text-muted-foreground">R$ {formatMoney(taxBase)}</TableCell>
-                        <TableCell className="hidden lg:table-cell font-mono text-xs">
-                          {irrfV > 0
-                            ? <span className="text-destructive/80">R$ {formatMoney(irrfV)}</span>
-                            : <span className="text-muted-foreground">—</span>
-                          }
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell font-mono text-xs font-medium">R$ {formatMoney(ownerNet)}</TableCell>
+                         <TableCell className="hidden lg:table-cell font-mono text-xs text-muted-foreground">
+                           {inst.ir_rate != null ? `${inst.ir_rate.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 })}%` : <span className="text-muted-foreground">—</span>}
+                         </TableCell>
+                         <TableCell className="hidden lg:table-cell font-mono text-xs text-muted-foreground">
+                           {inst.ir_deduction != null ? `R$ ${formatMoney(inst.ir_deduction)}` : <span className="text-muted-foreground">—</span>}
+                         </TableCell>
+                         <TableCell className="hidden lg:table-cell font-mono text-xs">
+                           <TooltipProvider>
+                             <Tooltip>
+                               <TooltipTrigger asChild>
+                                 <span className={irrfV > 0 ? "text-destructive/80 cursor-help underline decoration-dotted" : "text-muted-foreground cursor-default"}>
+                                   {irrfV > 0 ? `R$ ${formatMoney(irrfV)}` : "—"}
+                                 </span>
+                               </TooltipTrigger>
+                               <TooltipContent side="top" className="max-w-[260px] text-xs space-y-1 p-3">
+                                 <p className="font-semibold text-foreground mb-1">Detalhamento do IRRF</p>
+                                 <p>Base IR: <span className="font-mono">R$ {formatMoney(taxBase)}</span></p>
+                                 <p>Alíquota: <span className="font-mono">{inst.ir_rate != null ? `${inst.ir_rate}%` : "—"}</span></p>
+                                 <p>Dedução: <span className="font-mono">{inst.ir_deduction != null ? `R$ ${formatMoney(inst.ir_deduction)}` : "—"}</span></p>
+                                 <p className="text-muted-foreground pt-1 border-t border-border/40">
+                                   ({formatMoney(taxBase)} × {inst.ir_rate ?? 0}%) − R$ {formatMoney(inst.ir_deduction ?? 0)}
+                                 </p>
+                                 <p className="font-semibold text-foreground">= R$ {formatMoney(irrfV)}</p>
+                               </TooltipContent>
+                             </Tooltip>
+                           </TooltipProvider>
+                         </TableCell>
+                         <TableCell className="hidden md:table-cell font-mono text-xs font-medium">R$ {formatMoney(ownerNet)}</TableCell>
                         <TableCell>
                           <StatusDot status={resolvedStatus} />
                         </TableCell>
