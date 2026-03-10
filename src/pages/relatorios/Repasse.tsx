@@ -22,6 +22,9 @@ interface InstRow {
   value: number;
   management_fee_percent: number;
   management_fee_value: number;
+  tax_base_value: number;
+  irrf_value: number;
+  owner_net_value: number;
   repasse_value: number;
   status: string;
   paid_at: string | null;
@@ -29,6 +32,7 @@ interface InstRow {
   property_code: string;
   property_address: string;
   owner_name: string;
+  owner_person_type: string;
 }
 
 const INST_LABELS: Record<string, string> = {
@@ -54,6 +58,7 @@ export default function Repasse() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [competenceFilter, setCompetenceFilter] = useState("");
+  const [ownerTypeFilter, setOwnerTypeFilter] = useState("todos");
   const printRef = useRef<HTMLDivElement>(null);
 
   const today = new Date();
@@ -71,29 +76,43 @@ export default function Repasse() {
     const { data } = await supabase
       .from("rental_installments")
       .select(`
-        id, competence, due_date, value, management_fee_percent, management_fee_value, repasse_value, status, paid_at,
+        id, competence, due_date, value,
+        management_fee_percent, management_fee_value,
+        tax_base_value, irrf_value, owner_net_value, repasse_value,
+        status, paid_at,
         rental_contracts(
           tenant_id, tenants(full_name),
-          property_id, properties(code, address, clients(full_name))
+          property_id, properties(code, address, clients(full_name, person_type))
         )
       `)
       .order("due_date");
 
-    const mapped: InstRow[] = ((data ?? []) as any[]).map((r) => ({
-      id: r.id,
-      competence: r.competence,
-      due_date: r.due_date,
-      value: r.value,
-      management_fee_percent: r.management_fee_percent ?? 0,
-      management_fee_value: r.management_fee_value ?? (r.value * (r.management_fee_percent ?? 0) / 100),
-      repasse_value: r.repasse_value ?? (r.value - r.value * (r.management_fee_percent ?? 0) / 100),
-      status: r.status,
-      paid_at: r.paid_at,
-      tenant_name: r.rental_contracts?.tenants?.full_name ?? "—",
-      property_code: r.rental_contracts?.properties?.code ?? "—",
-      property_address: r.rental_contracts?.properties?.address ?? "—",
-      owner_name: r.rental_contracts?.properties?.clients?.full_name ?? "—",
-    }));
+    const mapped: InstRow[] = ((data ?? []) as any[]).map((r) => {
+      const feeP = r.management_fee_percent ?? 0;
+      const feeV = r.management_fee_value ?? (r.value * feeP / 100);
+      const taxBase = r.tax_base_value ?? (r.value - feeV);
+      const irrfV = r.irrf_value ?? 0;
+      const ownerNet = r.owner_net_value ?? r.repasse_value ?? (taxBase - irrfV);
+      return {
+        id: r.id,
+        competence: r.competence,
+        due_date: r.due_date,
+        value: r.value,
+        management_fee_percent: feeP,
+        management_fee_value: feeV,
+        tax_base_value: taxBase,
+        irrf_value: irrfV,
+        owner_net_value: ownerNet,
+        repasse_value: ownerNet,
+        status: r.status,
+        paid_at: r.paid_at,
+        tenant_name: r.rental_contracts?.tenants?.full_name ?? "—",
+        property_code: r.rental_contracts?.properties?.code ?? "—",
+        property_address: r.rental_contracts?.properties?.address ?? "—",
+        owner_name: r.rental_contracts?.properties?.clients?.full_name ?? "—",
+        owner_person_type: r.rental_contracts?.properties?.clients?.person_type ?? "fisica",
+      };
+    });
     setRows(mapped);
     setLoading(false);
   };
@@ -112,19 +131,19 @@ export default function Repasse() {
         (r.property_address ?? "").toLowerCase().includes(q);
       const matchStatus = statusFilter === "todos" || rs === statusFilter;
       const matchComp = !competenceFilter || r.competence.includes(competenceFilter);
-      return matchQ && matchStatus && matchComp;
+      const matchOwnerType = ownerTypeFilter === "todos" || r.owner_person_type === ownerTypeFilter;
+      return matchQ && matchStatus && matchComp && matchOwnerType;
     });
-  }, [rows, search, statusFilter, competenceFilter]);
+  }, [rows, search, statusFilter, competenceFilter, ownerTypeFilter]);
 
   const totals = useMemo(() => ({
     value: filtered.reduce((s, r) => s + r.value, 0),
     fee: filtered.reduce((s, r) => s + r.management_fee_value, 0),
+    irrf: filtered.reduce((s, r) => s + r.irrf_value, 0),
     repasse: filtered.reduce((s, r) => s + r.repasse_value, 0),
   }), [filtered]);
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => window.print();
 
   const handleExcel = () => {
     const exportData = filtered.map((r) => ({
@@ -134,14 +153,16 @@ export default function Repasse() {
       "Imóvel": r.property_code,
       "Endereço": r.property_address,
       "Locador": r.owner_name,
+      "Tipo Locador": r.owner_person_type === "fisica" ? "Pessoa Física" : "Pessoa Jurídica",
       "Valor Aluguel": r.value,
       "Taxa Admin (%)": r.management_fee_percent,
-      "Valor Admin": r.management_fee_value,
-      "Repasse": r.repasse_value,
+      "Valor Admin (R$)": r.management_fee_value,
+      "Base IR (R$)": r.tax_base_value,
+      "IRRF (R$)": r.irrf_value,
+      "Repasse Líquido (R$)": r.repasse_value,
       "Status": INST_LABELS[resolveStatus(r)] ?? r.status,
       "Data Pagamento": r.paid_at ? format(parseISO(r.paid_at + "T00:00:00"), "dd/MM/yyyy") : "",
     }));
-    // Add totals row
     exportData.push({
       "Competência": "TOTAL",
       "Vencimento": "",
@@ -149,10 +170,13 @@ export default function Repasse() {
       "Imóvel": "",
       "Endereço": "",
       "Locador": "",
+      "Tipo Locador": "",
       "Valor Aluguel": totals.value,
       "Taxa Admin (%)": 0,
-      "Valor Admin": totals.fee,
-      "Repasse": totals.repasse,
+      "Valor Admin (R$)": totals.fee,
+      "Base IR (R$)": 0,
+      "IRRF (R$)": totals.irrf,
+      "Repasse Líquido (R$)": totals.repasse,
       "Status": "",
       "Data Pagamento": "",
     } as any);
@@ -168,7 +192,9 @@ export default function Repasse() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Relatório de Repasse</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Cronograma de parcelas com valores de administração e repasse ao proprietário.</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Cronograma de parcelas com taxa de administração, IRRF e repasse líquido ao proprietário.
+            </p>
           </div>
           <div className="flex gap-2 print:hidden">
             <Button variant="outline" className="gap-2" onClick={handlePrint}><Printer className="h-4 w-4" /> Imprimir</Button>
@@ -182,7 +208,15 @@ export default function Repasse() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Buscar por locatário, imóvel, locador..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
-          <Input placeholder="Filtrar competência (ex: 05/2026)" value={competenceFilter} onChange={(e) => setCompetenceFilter(e.target.value)} className="w-full sm:w-52" />
+          <Input placeholder="Competência (ex: 05/2026)" value={competenceFilter} onChange={(e) => setCompetenceFilter(e.target.value)} className="w-full sm:w-48" />
+          <Select value={ownerTypeFilter} onValueChange={setOwnerTypeFilter}>
+            <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Tipo locador" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os locadores</SelectItem>
+              <SelectItem value="fisica">Pessoa Física (c/ IR)</SelectItem>
+              <SelectItem value="juridica">Pessoa Jurídica (s/ IR)</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full sm:w-44"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -206,27 +240,45 @@ export default function Repasse() {
                 <TableHead className="hidden lg:table-cell">Locador</TableHead>
                 <TableHead className="text-right">Aluguel</TableHead>
                 <TableHead className="text-right hidden md:table-cell">Taxa Admin</TableHead>
-                <TableHead className="text-right">Repasse</TableHead>
+                <TableHead className="text-right hidden lg:table-cell">Base IR</TableHead>
+                <TableHead className="text-right hidden lg:table-cell">IRRF</TableHead>
+                <TableHead className="text-right font-semibold">Repasse Líquido</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={9} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={9} className="text-center py-12 text-muted-foreground text-sm">Nenhum registro encontrado.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center py-12 text-muted-foreground text-sm">Nenhum registro encontrado.</TableCell></TableRow>
               ) : filtered.map((r) => {
                 const rs = resolveStatus(r);
+                const hasIrrf = r.irrf_value > 0;
                 return (
                   <TableRow key={r.id} className="border-border/40 hover:bg-muted/30 transition-colors">
                     <TableCell className="font-mono text-sm">{r.competence}</TableCell>
-                    <TableCell className="text-sm">{format(parseISO(r.due_date + "T00:00:00"), "dd/MM/yyyy")}</TableCell>
+                    <TableCell className="text-sm whitespace-nowrap">{format(parseISO(r.due_date + "T00:00:00"), "dd/MM/yyyy")}</TableCell>
                     <TableCell className="font-medium text-sm">{r.tenant_name}</TableCell>
                     <TableCell className="hidden md:table-cell text-muted-foreground text-sm">{r.property_code}</TableCell>
-                    <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">{r.owner_name}</TableCell>
+                    <TableCell className="hidden lg:table-cell text-sm">
+                      <div className="flex flex-col">
+                        <span className="text-muted-foreground">{r.owner_name}</span>
+                        <span className="text-xs text-muted-foreground/60">{r.owner_person_type === "fisica" ? "PF" : "PJ"}</span>
+                      </div>
+                    </TableCell>
                     <TableCell className="text-right font-mono text-sm">R$ {fm(r.value)}</TableCell>
                     <TableCell className="text-right font-mono text-sm hidden md:table-cell text-muted-foreground">
-                      R$ {fm(r.management_fee_value)} <span className="text-xs">({r.management_fee_percent}%)</span>
+                      R$ {fm(r.management_fee_value)}{" "}
+                      <span className="text-xs">({r.management_fee_percent}%)</span>
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-sm hidden lg:table-cell text-muted-foreground">
+                      R$ {fm(r.tax_base_value)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-sm hidden lg:table-cell">
+                      {hasIrrf
+                        ? <span className="text-destructive/80">R$ {fm(r.irrf_value)}</span>
+                        : <span className="text-muted-foreground">—</span>
+                      }
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm font-semibold">R$ {fm(r.repasse_value)}</TableCell>
                     <TableCell><Badge variant={INST_COLORS[rs] ?? "outline"} className="text-xs">{INST_LABELS[rs] ?? rs}</Badge></TableCell>
@@ -238,16 +290,30 @@ export default function Repasse() {
         </div>
 
         {/* Totals */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: "Total Aluguel", value: totals.value, accent: false },
-            { label: "Total Taxa Admin", value: totals.fee, accent: false },
-            { label: "Total Repasse", value: totals.repasse, accent: true },
+            { label: "Total Aluguel", value: totals.value, accent: false, sub: `${filtered.length} parcela(s)` },
+            { label: "Total Taxa Admin", value: totals.fee, accent: false, sub: "Administração imobiliária" },
+            { label: "Total IRRF Retido", value: totals.irrf, accent: false, sub: "Apenas locadores PF", highlight: totals.irrf > 0 },
+            { label: "Total Repasse Líquido", value: totals.repasse, accent: true, sub: "Valor ao proprietário" },
           ].map((item) => (
-            <div key={item.label} className={`card-premium rounded-xl p-4 border ${item.accent ? "border-primary/40 bg-primary/5" : "border-border/40"}`}>
+            <div
+              key={item.label}
+              className={`card-premium rounded-xl p-4 border ${
+                item.accent
+                  ? "border-primary/40 bg-primary/5"
+                  : (item as any).highlight
+                    ? "border-destructive/30 bg-destructive/5"
+                    : "border-border/40"
+              }`}
+            >
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{item.label}</p>
-              <p className={`text-xl font-bold font-mono mt-1 ${item.accent ? "text-primary" : "text-foreground"}`}>R$ {fm(item.value)}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{filtered.length} parcela(s)</p>
+              <p className={`text-xl font-bold font-mono mt-1 ${
+                item.accent ? "text-primary" : (item as any).highlight && totals.irrf > 0 ? "text-destructive/80" : "text-foreground"
+              }`}>
+                R$ {fm(item.value)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">{item.sub}</p>
             </div>
           ))}
         </div>
