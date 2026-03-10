@@ -266,8 +266,8 @@ export default function Clientes() {
                 {visibleCols.has("email") && <TableHead>E-mail</TableHead>}
                 {visibleCols.has("whatsapp") && <TableHead>WhatsApp</TableHead>}
                 {visibleCols.has("address") && <TableHead>Endereço</TableHead>}
-                {visibleCols.has("status") && <TableHead className={`${thClass} w-[60px]`} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>}
-                <TableHead className="text-right w-[60px]">Ações</TableHead>
+                {visibleCols.has("status") && <TableHead className={`${thClass} w-px whitespace-nowrap`} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>}
+                <TableHead className="text-right w-px whitespace-nowrap">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -288,9 +288,9 @@ export default function Clientes() {
                     {visibleCols.has("whatsapp") && <TableCell className="text-muted-foreground text-sm">{client.whatsapp || "—"}</TableCell>}
                     {visibleCols.has("address") && <TableCell className="text-muted-foreground text-sm truncate max-w-[160px]">{client.address || "—"}</TableCell>}
                     {visibleCols.has("status") && (
-                      <TableCell className="w-[60px]"><StatusDot status={client.status} /></TableCell>
+                      <TableCell className="w-px whitespace-nowrap"><StatusDot status={client.status} /></TableCell>
                     )}
-                    <TableCell className="text-right w-[60px]">
+                    <TableCell className="text-right w-px whitespace-nowrap">
                       <ActionGear
                         legendKeys={["ativo", "inativo"]}
                         actions={[
