@@ -274,7 +274,7 @@ export default function Clientes() {
                 <TableRow><TableCell colSpan={visibleCols.size + 1} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={visibleCols.size + 1} className="text-center py-12 text-muted-foreground text-sm">
-                  {search || statusFilter !== "todos" ? "Nenhum cliente encontrado com os filtros aplicados." : "Nenhum cliente cadastrado ainda."}
+                  {search || statusFilter !== "todos" ? "Nenhum locador encontrado com os filtros aplicados." : "Nenhum locador cadastrado ainda."}
                 </TableCell></TableRow>
               ) : (
                 filtered.map((client) => (
