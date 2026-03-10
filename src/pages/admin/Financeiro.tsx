@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { ExternalLink, Loader2, CheckCircle, AlertCircle, XCircle, RefreshCw } from "lucide-react";
+import { ExternalLink, Loader2, CheckCircle, AlertCircle, XCircle, RefreshCw, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+
+const PRICE_ID = "price_1T6XRS8rgGCdKgUCkAbD6Bav";
 
 type BillingStatus = "active" | "past_due" | "canceled" | "trialing" | null;
 
@@ -27,12 +28,12 @@ export default function Financeiro() {
   const [billing, setBilling] = useState<BillingInfo | null>(null);
   const [loadingBilling, setLoadingBilling] = useState(true);
   const [loadingPortal, setLoadingPortal] = useState(false);
+  const [loadingCheckout, setLoadingCheckout] = useState(false);
   const [loadingRefresh, setLoadingRefresh] = useState(false);
   const [error, setError] = useState("");
 
   const fetchBilling = async () => {
     if (!user || !company) return;
-    // Usa o email da empresa (quem assinou), não o email do usuário logado
     const billingEmail = company.email ?? user.email ?? "";
     setLoadingBilling(true);
     setError("");
@@ -40,9 +41,7 @@ export default function Financeiro() {
       const { data, error: fnError } = await supabase.functions.invoke("get-billing-status", {
         body: { customer_email: billingEmail },
       });
-
       if (fnError) throw new Error(fnError.message);
-
       setBilling({
         status: data?.status ?? null,
         customer_email: billingEmail,
@@ -70,17 +69,10 @@ export default function Financeiro() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await supabase.functions.invoke("get-portal-link", {
-        body: {
-          customer_email: billing.customer_email,
-          saas_key: billing.saas_key,
-        },
-        headers: session?.access_token
-          ? { Authorization: `Bearer ${session.access_token}` }
-          : {},
+        body: { customer_email: billing.customer_email, saas_key: billing.saas_key },
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
       });
-
       if (res.error) throw new Error(res.error.message);
-
       const url = res.data?.url;
       if (url) {
         window.open(url, "_blank");
@@ -95,7 +87,38 @@ export default function Financeiro() {
     }
   };
 
+  const openCheckout = async () => {
+    if (!billing) return;
+    setLoadingCheckout(true);
+    setError("");
+    try {
+      const origin = window.location.origin;
+      const res = await supabase.functions.invoke("create-checkout", {
+        body: {
+          email: billing.customer_email,
+          price_id: PRICE_ID,
+          success_url: `${origin}/admin/financeiro?checkout=success`,
+          cancel_url: `${origin}/admin/financeiro`,
+        },
+      });
+      if (res.error) throw new Error(res.error.message);
+      const url = res.data?.url;
+      if (url) {
+        window.open(url, "_blank");
+      } else {
+        setError("Não foi possível abrir o checkout. Tente novamente.");
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Erro desconhecido";
+      setError(`Erro ao abrir o checkout: ${message}`);
+    } finally {
+      setLoadingCheckout(false);
+    }
+  };
+
   const statusInfo = billing?.status ? statusConfig[billing.status] : null;
+  // Assinatura inativa = sem assinatura ou cancelada → mostrar checkout
+  const needsSubscription = !billing?.status || billing.status === "canceled";
 
   return (
     <DashboardLayout>
@@ -163,32 +186,65 @@ export default function Financeiro() {
               </CardContent>
             </Card>
 
-            {/* Portal Card */}
+            {/* Portal/Checkout Card */}
             <Card className="shadow-card border-0">
               <CardHeader>
-                <CardTitle className="text-base">Portal do Cliente</CardTitle>
-                <CardDescription>Acesse faturas, histórico e dados de pagamento</CardDescription>
+                <CardTitle className="text-base">
+                  {needsSubscription ? "Assinar o Verom" : "Portal do Cliente"}
+                </CardTitle>
+                <CardDescription>
+                  {needsSubscription
+                    ? "Assine o plano para ter acesso completo ao sistema"
+                    : "Acesse faturas, histórico e dados de pagamento"}
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Visualize todas as suas faturas, altere o método de pagamento e gerencie os dados da assinatura
-                  diretamente no portal seguro.
-                </p>
+                {needsSubscription ? (
+                  <p className="text-sm text-muted-foreground">
+                    Sua conta não possui uma assinatura ativa. Clique abaixo para assinar o Plano Profissional
+                    e restaurar o acesso completo ao sistema.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Visualize todas as suas faturas, altere o método de pagamento e gerencie os dados da assinatura
+                    diretamente no portal seguro.
+                  </p>
+                )}
                 {error && (
                   <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
                 )}
-                <Button
-                  onClick={openCustomerPortal}
-                  disabled={loadingPortal}
-                  className="gap-2"
-                >
-                  {loadingPortal ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                <div className="flex flex-col gap-2">
+                  {needsSubscription ? (
+                    <Button onClick={openCheckout} disabled={loadingCheckout} className="gap-2">
+                      {loadingCheckout ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <CreditCard className="h-4 w-4" />
+                      )}
+                      Assinar agora — R$29,90/mês
+                    </Button>
                   ) : (
-                    <ExternalLink className="h-4 w-4" />
+                    <Button onClick={openCustomerPortal} disabled={loadingPortal} className="gap-2">
+                      {loadingPortal ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ExternalLink className="h-4 w-4" />
+                      )}
+                      Ver faturas e gerenciar assinatura
+                    </Button>
                   )}
-                  Ver faturas e gerenciar assinatura
-                </Button>
+                  {/* Se past_due, mostra checkout como alternativa ao portal */}
+                  {billing?.status === "past_due" && (
+                    <Button variant="outline" onClick={openCheckout} disabled={loadingCheckout} className="gap-2">
+                      {loadingCheckout ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <CreditCard className="h-4 w-4" />
+                      )}
+                      Regularizar com novo cartão
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
