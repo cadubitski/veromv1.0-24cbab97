@@ -256,8 +256,8 @@ export default function Inquilinos() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg flex flex-col max-h-[90vh]">
           <DialogHeader className="shrink-0">
-            <DialogTitle>{editTenant ? "Editar inquilino" : "Novo inquilino"}</DialogTitle>
-            <DialogDescription>{editTenant ? "Atualize os dados do inquilino." : "Preencha os dados para cadastrar um novo inquilino."}</DialogDescription>
+            <DialogTitle>{editTenant ? "Editar locatário" : "Novo locatário"}</DialogTitle>
+            <DialogDescription>{editTenant ? "Atualize os dados do locatário." : "Preencha os dados para cadastrar um novo locatário."}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2 overflow-y-auto flex-1 pr-1">
             <div className="grid grid-cols-2 gap-4">
