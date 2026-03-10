@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
 
   try {
     // Notifica o billing-core sobre o evento para que ele atualize a assinatura
-    const billingWebhookUrl = `${BILLING_URL}/webhook`;
+    const billingWebhookUrl = `${BILLING_URL}/stripe/webhook`;
     console.log(`Forwarding event ${event.type} to billing-core:`, billingWebhookUrl);
 
     const res = await fetch(billingWebhookUrl, {
