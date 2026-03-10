@@ -220,7 +220,7 @@ export default function Inquilinos() {
                 <TableRow><TableCell colSpan={visibleCols.size + 1} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={visibleCols.size + 1} className="text-center py-12 text-muted-foreground text-sm">
-                  {search || statusFilter !== "todos" ? "Nenhum inquilino encontrado com os filtros aplicados." : "Nenhum inquilino cadastrado ainda."}
+                  {search || statusFilter !== "todos" ? "Nenhum locatário encontrado com os filtros aplicados." : "Nenhum locatário cadastrado ainda."}
                 </TableCell></TableRow>
               ) : filtered.map((t) => (
                 <TableRow key={t.id} className="border-border/40 hover:bg-muted/30 transition-colors">
