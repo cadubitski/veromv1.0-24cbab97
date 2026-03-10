@@ -130,10 +130,10 @@ export default function Repasse() {
     const exportData = filtered.map((r) => ({
       "Competência": r.competence,
       "Vencimento": format(parseISO(r.due_date + "T00:00:00"), "dd/MM/yyyy"),
-      "Inquilino": r.tenant_name,
+      "Locatário": r.tenant_name,
       "Imóvel": r.property_code,
       "Endereço": r.property_address,
-      "Proprietário": r.owner_name,
+      "Locador": r.owner_name,
       "Valor Aluguel": r.value,
       "Taxa Admin (%)": r.management_fee_percent,
       "Valor Admin": r.management_fee_value,
@@ -145,10 +145,10 @@ export default function Repasse() {
     exportData.push({
       "Competência": "TOTAL",
       "Vencimento": "",
-      "Inquilino": "",
+      "Locatário": "",
       "Imóvel": "",
       "Endereço": "",
-      "Proprietário": "",
+      "Locador": "",
       "Valor Aluguel": totals.value,
       "Taxa Admin (%)": 0,
       "Valor Admin": totals.fee,
@@ -180,7 +180,7 @@ export default function Repasse() {
         <div className="flex flex-col sm:flex-row gap-3 print:hidden">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar por inquilino, imóvel, proprietário..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            <Input placeholder="Buscar por locatário, imóvel, locador..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
           <Input placeholder="Filtrar competência (ex: 05/2026)" value={competenceFilter} onChange={(e) => setCompetenceFilter(e.target.value)} className="w-full sm:w-52" />
           <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -201,9 +201,9 @@ export default function Repasse() {
               <TableRow className="border-border/40">
                 <TableHead>Competência</TableHead>
                 <TableHead>Vencimento</TableHead>
-                <TableHead>Inquilino</TableHead>
+                <TableHead>Locatário</TableHead>
                 <TableHead className="hidden md:table-cell">Imóvel</TableHead>
-                <TableHead className="hidden lg:table-cell">Proprietário</TableHead>
+                <TableHead className="hidden lg:table-cell">Locador</TableHead>
                 <TableHead className="text-right">Aluguel</TableHead>
                 <TableHead className="text-right hidden md:table-cell">Taxa Admin</TableHead>
                 <TableHead className="text-right">Repasse</TableHead>

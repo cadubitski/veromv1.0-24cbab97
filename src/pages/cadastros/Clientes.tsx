@@ -225,11 +225,11 @@ export default function Clientes() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Clientes</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Gerencie os proprietários e clientes da sua imobiliária.</p>
+            <h1 className="text-2xl font-bold tracking-tight">Locadores</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Gerencie os locadores (proprietários) da sua imobiliária.</p>
           </div>
           <Button onClick={openCreate} className="gap-2">
-            <Plus className="h-4 w-4" /> Novo Cliente
+            <Plus className="h-4 w-4" /> Novo Locador
           </Button>
         </div>
 
@@ -274,7 +274,7 @@ export default function Clientes() {
                 <TableRow><TableCell colSpan={visibleCols.size + 1} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={visibleCols.size + 1} className="text-center py-12 text-muted-foreground text-sm">
-                  {search || statusFilter !== "todos" ? "Nenhum cliente encontrado com os filtros aplicados." : "Nenhum cliente cadastrado ainda."}
+                  {search || statusFilter !== "todos" ? "Nenhum locador encontrado com os filtros aplicados." : "Nenhum locador cadastrado ainda."}
                 </TableCell></TableRow>
               ) : (
                 filtered.map((client) => (
@@ -298,7 +298,7 @@ export default function Clientes() {
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openView(client)}><Eye className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(client)}><Pencil className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => openDelete(client)}><Trash2 className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="sm" className="h-8 text-xs hidden sm:flex gap-1.5" onClick={() => navigate(`/cadastros/clientes/${client.id}/imoveis`)}>Imóveis</Button>
+                        <Button variant="ghost" size="sm" className="h-8 text-xs hidden sm:flex gap-1.5" onClick={() => navigate(`/cadastros/clientes/${client.id}/imoveis`)}>Ver Imóveis</Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -313,9 +313,9 @@ export default function Clientes() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg flex flex-col max-h-[90vh]">
           <DialogHeader className="shrink-0">
-            <DialogTitle>{editClient ? "Editar cliente" : "Novo cliente"}</DialogTitle>
+            <DialogTitle>{editClient ? "Editar locador" : "Novo locador"}</DialogTitle>
             <DialogDescription>
-              {editClient ? "Atualize os dados do cliente." : "Preencha os dados para cadastrar um novo cliente."}
+              {editClient ? "Atualize os dados do locador." : "Preencha os dados para cadastrar um novo locador."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2 overflow-y-auto flex-1 pr-1">
@@ -331,7 +331,7 @@ export default function Clientes() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <FieldLabel label="Status" tooltip="Define se este cliente está ativo no sistema." required />
+                <FieldLabel label="Status" tooltip="Define se este locador está ativo no sistema." required />
                 <Select value={form.status} onValueChange={(v) => f("status", v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -379,19 +379,19 @@ export default function Clientes() {
               <Input type="email" value={form.email ?? ""} onChange={(e) => f("email", e.target.value)} placeholder="email@exemplo.com" />
             </div>
             <div className="space-y-2">
-              <FieldLabel label="Endereço completo" tooltip="Endereço residencial ou comercial do cliente." />
+              <FieldLabel label="Endereço completo" tooltip="Endereço residencial ou comercial do locador." />
               <Input value={form.address ?? ""} onChange={(e) => f("address", e.target.value)} placeholder="Rua, número, bairro, cidade - UF" />
             </div>
             <div className="space-y-2">
-              <FieldLabel label="Observações internas" tooltip="Notas internas sobre este cliente, visíveis apenas para a equipe." />
-              <Textarea value={form.notes ?? ""} onChange={(e) => f("notes", e.target.value)} placeholder="Informações relevantes sobre este cliente..." rows={3} className="resize-none" />
+              <FieldLabel label="Observações internas" tooltip="Notas internas sobre este locador, visíveis apenas para a equipe." />
+              <Textarea value={form.notes ?? ""} onChange={(e) => f("notes", e.target.value)} placeholder="Informações relevantes sobre este locador..." rows={3} className="resize-none" />
             </div>
             {error && <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
           </div>
           <DialogFooter className="shrink-0">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : editClient ? "Salvar" : "Criar cliente"}
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : editClient ? "Salvar" : "Criar locador"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -400,7 +400,7 @@ export default function Clientes() {
       {/* View Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Dados do cliente</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Dados do locador</DialogTitle></DialogHeader>
           {viewClient && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
@@ -421,7 +421,7 @@ export default function Clientes() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setViewDialogOpen(false)}>Fechar</Button>
             {viewClient && (
-              <Button onClick={() => { setViewDialogOpen(false); navigate(`/cadastros/clientes/${viewClient.id}/imoveis`); }}>Ver imóveis</Button>
+              <Button onClick={() => { setViewDialogOpen(false); navigate(`/cadastros/clientes/${viewClient.id}/imoveis`); }}>Ver Imóveis</Button>
             )}
           </DialogFooter>
         </DialogContent>
@@ -431,7 +431,7 @@ export default function Clientes() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir cliente</AlertDialogTitle>
+            <AlertDialogTitle>Excluir locador</AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja excluir <strong>{deleteTarget?.full_name}</strong>? Esta ação não pode ser desfeita.
             </AlertDialogDescription>

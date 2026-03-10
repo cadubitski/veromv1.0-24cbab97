@@ -178,10 +178,10 @@ export default function Inquilinos() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Inquilinos</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Gerencie os inquilinos / locatários da sua imobiliária.</p>
+            <h1 className="text-2xl font-bold tracking-tight">Locatários</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Gerencie os locatários da sua imobiliária.</p>
           </div>
-          <Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" /> Novo Inquilino</Button>
+          <Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" /> Novo Locatário</Button>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
@@ -220,7 +220,7 @@ export default function Inquilinos() {
                 <TableRow><TableCell colSpan={visibleCols.size + 1} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={visibleCols.size + 1} className="text-center py-12 text-muted-foreground text-sm">
-                  {search || statusFilter !== "todos" ? "Nenhum inquilino encontrado com os filtros aplicados." : "Nenhum inquilino cadastrado ainda."}
+                  {search || statusFilter !== "todos" ? "Nenhum locatário encontrado com os filtros aplicados." : "Nenhum locatário cadastrado ainda."}
                 </TableCell></TableRow>
               ) : filtered.map((t) => (
                 <TableRow key={t.id} className="border-border/40 hover:bg-muted/30 transition-colors">
@@ -256,8 +256,8 @@ export default function Inquilinos() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg flex flex-col max-h-[90vh]">
           <DialogHeader className="shrink-0">
-            <DialogTitle>{editTenant ? "Editar inquilino" : "Novo inquilino"}</DialogTitle>
-            <DialogDescription>{editTenant ? "Atualize os dados do inquilino." : "Preencha os dados para cadastrar um novo inquilino."}</DialogDescription>
+            <DialogTitle>{editTenant ? "Editar locatário" : "Novo locatário"}</DialogTitle>
+            <DialogDescription>{editTenant ? "Atualize os dados do locatário." : "Preencha os dados para cadastrar um novo locatário."}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2 overflow-y-auto flex-1 pr-1">
             <div className="grid grid-cols-2 gap-4">
@@ -272,7 +272,7 @@ export default function Inquilinos() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <FieldLabel label="Status" tooltip="Define se este inquilino está ativo no sistema." required />
+                <FieldLabel label="Status" tooltip="Define se este locatário está ativo no sistema." required />
                 <Select value={form.status} onValueChange={(v) => f("status", v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -287,7 +287,7 @@ export default function Inquilinos() {
               <Input value={form.full_name} onChange={(e) => f("full_name", e.target.value)} placeholder="Ex: Maria Oliveira" />
             </div>
             <div className="space-y-2">
-              <FieldLabel label={form.person_type === "fisica" ? "CPF" : "CNPJ"} tooltip={form.person_type === "fisica" ? "CPF do inquilino." : "CNPJ da empresa inquilina."} />
+              <FieldLabel label={form.person_type === "fisica" ? "CPF" : "CNPJ"} tooltip={form.person_type === "fisica" ? "CPF do locatário." : "CNPJ da empresa locatária."} />
               <Input value={form.document ?? ""} onChange={(e) => handleDoc(e.target.value)} placeholder={form.person_type === "fisica" ? "000.000.000-00" : "00.000.000/0000-00"} inputMode="numeric" />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -301,15 +301,15 @@ export default function Inquilinos() {
               </div>
             </div>
             <div className="space-y-2">
-              <FieldLabel label="E-mail" tooltip="Endereço de e-mail do inquilino." />
+              <FieldLabel label="E-mail" tooltip="Endereço de e-mail do locatário." />
               <Input type="email" value={form.email ?? ""} onChange={(e) => f("email", e.target.value)} placeholder="email@exemplo.com" />
             </div>
             <div className="space-y-2">
-              <FieldLabel label="Endereço completo" tooltip="Endereço residencial ou comercial do inquilino." />
+              <FieldLabel label="Endereço completo" tooltip="Endereço residencial ou comercial do locatário." />
               <Input value={form.address ?? ""} onChange={(e) => f("address", e.target.value)} placeholder="Rua, número, bairro, cidade - UF" />
             </div>
             <div className="space-y-2">
-              <FieldLabel label="Observações internas" tooltip="Notas internas sobre este inquilino, visíveis apenas para a equipe." />
+              <FieldLabel label="Observações internas" tooltip="Notas internas sobre este locatário, visíveis apenas para a equipe." />
               <Textarea value={form.notes ?? ""} onChange={(e) => f("notes", e.target.value)} placeholder="Informações relevantes..." rows={3} className="resize-none" />
             </div>
             {error && <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
@@ -317,7 +317,7 @@ export default function Inquilinos() {
           <DialogFooter className="shrink-0">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : editTenant ? "Salvar" : "Criar inquilino"}
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : editTenant ? "Salvar" : "Criar locatário"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -326,7 +326,7 @@ export default function Inquilinos() {
       {/* View Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Dados do inquilino</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Dados do locatário</DialogTitle></DialogHeader>
           {viewTenant && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
@@ -349,7 +349,7 @@ export default function Inquilinos() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir inquilino</AlertDialogTitle>
+            <AlertDialogTitle>Excluir locatário</AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja excluir <strong>{deleteTarget?.full_name}</strong>? Esta ação não pode ser desfeita.
             </AlertDialogDescription>

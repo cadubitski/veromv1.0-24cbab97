@@ -67,7 +67,7 @@ type SortKey = "tenant_name" | "property_code" | "rent_value" | "start_date" | "
 type SortDir = "asc" | "desc";
 
 const CONTRACT_COLUMNS: ColumnDef[] = [
-  { key: "tenant_name", label: "Inquilino", defaultVisible: true },
+  { key: "tenant_name", label: "Locatário", defaultVisible: true },
   { key: "property_code", label: "Imóvel", defaultVisible: true },
   { key: "rent_value", label: "Valor", defaultVisible: true },
   { key: "management_fee", label: "Taxa Admin", defaultVisible: false },
@@ -561,7 +561,7 @@ export default function GestaoAluguel() {
   const propertyItems = properties.map((p) => ({
     id: p.id,
     label: p.code + (p.address ? ` – ${p.address.slice(0, 30)}` : ""),
-    sublabel: p.client_name ? `Proprietário: ${p.client_name}` : "",
+    sublabel: p.client_name ? `Locador: ${p.client_name}` : "",
   }));
 
   return (
@@ -578,7 +578,7 @@ export default function GestaoAluguel() {
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar por inquilino ou código do imóvel..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            <Input placeholder="Buscar por locatário ou código do imóvel..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full sm:w-44"><SelectValue /></SelectTrigger>
@@ -599,8 +599,8 @@ export default function GestaoAluguel() {
         {showFilters && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 p-4 rounded-xl border border-border/40 bg-muted/20">
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Inquilino</p>
-              <Input placeholder="Nome do inquilino" value={filterTenant} onChange={(e) => setFilterTenant(e.target.value)} className="h-8 text-sm" />
+              <p className="text-xs text-muted-foreground">Locatário</p>
+              <Input placeholder="Nome do locatário" value={filterTenant} onChange={(e) => setFilterTenant(e.target.value)} className="h-8 text-sm" />
             </div>
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">Imóvel</p>
@@ -628,7 +628,7 @@ export default function GestaoAluguel() {
           <Table>
             <TableHeader>
               <TableRow className="border-border/40">
-                {visibleCols.has("tenant_name") && <TableHead className={thClass} onClick={() => handleSort("tenant_name")}>Inquilino <SortIcon col="tenant_name" /></TableHead>}
+                {visibleCols.has("tenant_name") && <TableHead className={thClass} onClick={() => handleSort("tenant_name")}>Locatário <SortIcon col="tenant_name" /></TableHead>}
                 {visibleCols.has("property_code") && <TableHead className={thClass} onClick={() => handleSort("property_code")}>Imóvel <SortIcon col="property_code" /></TableHead>}
                 {visibleCols.has("rent_value") && <TableHead className={thClass} onClick={() => handleSort("rent_value")}>Valor <SortIcon col="rent_value" /></TableHead>}
                 {visibleCols.has("management_fee") && <TableHead>Taxa Admin</TableHead>}
@@ -688,10 +688,10 @@ export default function GestaoAluguel() {
           {viewContract && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
-                <div><p className="text-muted-foreground text-xs">Inquilino</p><p className="font-medium">{viewContract.tenants?.full_name ?? "—"}</p></div>
+                <div><p className="text-muted-foreground text-xs">Locatário</p><p className="font-medium">{viewContract.tenants?.full_name ?? "—"}</p></div>
                 <div><p className="text-muted-foreground text-xs">Imóvel</p><p className="font-medium">{viewContract.properties?.code ?? "—"}</p></div>
                 <div><p className="text-muted-foreground text-xs">Endereço</p><p>{viewContract.properties?.address ?? "—"}</p></div>
-                <div><p className="text-muted-foreground text-xs">Proprietário</p><p>{(viewContract.properties as any)?.clients?.full_name ?? "—"}</p></div>
+                <div><p className="text-muted-foreground text-xs">Locador</p><p>{(viewContract.properties as any)?.clients?.full_name ?? "—"}</p></div>
                 <div><p className="text-muted-foreground text-xs">Valor aluguel</p><p className="font-mono">R$ {formatMoney(viewContract.rent_value)}</p></div>
                 <div><p className="text-muted-foreground text-xs">Início</p><p>{format(parseISO(viewContract.start_date), "dd/MM/yyyy")}</p></div>
                 <div><p className="text-muted-foreground text-xs">Vencimento</p><p>Dia {viewContract.due_day}</p></div>
@@ -721,9 +721,9 @@ export default function GestaoAluguel() {
           </DialogHeader>
           <div className="space-y-4 py-2 overflow-y-auto flex-1 pr-1">
             <div className="space-y-2">
-              <FieldLabel label="Inquilino" tooltip="Selecione o inquilino que irá locar o imóvel." required />
+              <FieldLabel label="Locatário" tooltip="Selecione o locatário que irá locar o imóvel." required />
               <SearchableSelect
-                placeholder="Selecione o inquilino..."
+                placeholder="Selecione o locatário..."
                 value={form.tenant_id}
                 onChange={(v) => setForm((p) => ({ ...p, tenant_id: v }))}
                 items={tenantItems}
