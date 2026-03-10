@@ -180,7 +180,7 @@ export default function Repasse() {
         <div className="flex flex-col sm:flex-row gap-3 print:hidden">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar por inquilino, imóvel, proprietário..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            <Input placeholder="Buscar por locatário, imóvel, locador..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
           <Input placeholder="Filtrar competência (ex: 05/2026)" value={competenceFilter} onChange={(e) => setCompetenceFilter(e.target.value)} className="w-full sm:w-52" />
           <Select value={statusFilter} onValueChange={setStatusFilter}>
