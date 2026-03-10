@@ -707,13 +707,18 @@ export default function GestaoContratos() {
   };
 
   const handleChangeStatus = async (c: Contract, newStatus: string) => {
-    await supabase.from("rental_contracts").update({ status: newStatus }).eq("id", c.id);
+    const { error: err } = await supabase.from("rental_contracts").update({ status: newStatus }).eq("id", c.id);
+    if (err) { toast.error("Erro ao atualizar status."); return; }
     if (newStatus !== "ativo") {
       await supabase.from("properties").update({ status: "disponivel" }).eq("id", c.property_id);
     }
-    loadContracts();
-    toast.success("Status do contrato atualizado.");
+    setViewDialogOpen(false);
+    setStatusChangeTarget(null);
+    await loadContracts();
+    toast.success(`Contrato ${newStatus === "encerrado" ? "encerrado" : "cancelado"} com sucesso. Imóvel liberado.`);
   };
+
+  const [statusChangeTarget, setStatusChangeTarget] = useState<{ contract: Contract; newStatus: string } | null>(null);
 
   const openManagement = async (c: Contract) => {
     setManagementContract(c);
@@ -911,7 +916,11 @@ export default function GestaoContratos() {
                         { label: "Parcelas", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => openManagement(c) },
                         { label: "Imprimir contrato", icon: <Printer className="h-3.5 w-3.5" />, onClick: () => openPrint(c) },
                         { label: "Editar", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => openEdit(c) },
-                        { label: "Excluir", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => openDelete(c), variant: "destructive" },
+                        ...(c.status === "ativo" ? [
+                          { label: "Encerrar contrato", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => setStatusChangeTarget({ contract: c, newStatus: "encerrado" }), variant: "destructive" as const },
+                          { label: "Cancelar contrato", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => setStatusChangeTarget({ contract: c, newStatus: "cancelado" }), variant: "destructive" as const },
+                        ] : []),
+                        { label: "Excluir", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => openDelete(c), variant: "destructive" as const },
                       ]}
                     />
                   </TableCell>
@@ -947,8 +956,8 @@ export default function GestaoContratos() {
               </div>
               {viewContract.status === "ativo" && (
                 <div className="flex gap-2 pt-2 border-t border-border/40">
-                  <Button size="sm" variant="outline" onClick={() => { handleChangeStatus(viewContract, "encerrado"); setViewDialogOpen(false); }}>Encerrar contrato</Button>
-                  <Button size="sm" variant="outline" onClick={() => { handleChangeStatus(viewContract, "cancelado"); setViewDialogOpen(false); }}>Cancelar contrato</Button>
+                  <Button size="sm" variant="outline" onClick={() => setStatusChangeTarget({ contract: viewContract, newStatus: "encerrado" })}>Encerrar contrato</Button>
+                  <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => setStatusChangeTarget({ contract: viewContract, newStatus: "cancelado" })}>Cancelar contrato</Button>
                 </div>
               )}
             </div>
@@ -1249,6 +1258,33 @@ export default function GestaoContratos() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Status Change Confirmation Dialog */}
+      <AlertDialog open={!!statusChangeTarget} onOpenChange={(open) => { if (!open) setStatusChangeTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {statusChangeTarget?.newStatus === "encerrado" ? "Encerrar contrato" : "Cancelar contrato"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja{" "}
+              <strong>{statusChangeTarget?.newStatus === "encerrado" ? "encerrar" : "cancelar"}</strong> o contrato de{" "}
+              <strong>{statusChangeTarget?.contract.tenants?.full_name}</strong>?
+              <br />
+              O imóvel <strong>{statusChangeTarget?.contract.properties?.code}</strong> será automaticamente marcado como <strong>disponível</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => { if (statusChangeTarget) handleChangeStatus(statusChangeTarget.contract, statusChangeTarget.newStatus); }}
+            >
+              {statusChangeTarget?.newStatus === "encerrado" ? "Encerrar" : "Cancelar contrato"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }
