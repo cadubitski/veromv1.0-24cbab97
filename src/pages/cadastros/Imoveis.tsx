@@ -387,15 +387,16 @@ export default function Imoveis() {
                     {visibleCols.has("sale_value") && <TableCell className="text-muted-foreground text-sm font-mono">{p.sale_value ? `R$ ${p.sale_value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}</TableCell>}
                     {visibleCols.has("area_m2") && <TableCell className="text-muted-foreground text-sm">{p.area_m2 ? `${p.area_m2} m²` : "—"}</TableCell>}
                     {visibleCols.has("status") && (
-                      <TableCell>
-                        <Badge variant={statusVariant[p.status]} className="text-xs">{statusLabel[p.status]}</Badge>
-                      </TableCell>
+                      <TableCell><StatusDot status={p.status} /></TableCell>
                     )}
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => openDelete(p)}><Trash2 className="h-4 w-4" /></Button>
-                      </div>
+                      <ActionGear
+                        legendKeys={["disponivel", "alugado", "vendido", "inativo"]}
+                        actions={[
+                          { label: "Editar", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => openEdit(p) },
+                          { label: "Excluir", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => openDelete(p), variant: "destructive" },
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 ))

@@ -288,19 +288,18 @@ export default function Clientes() {
                     {visibleCols.has("whatsapp") && <TableCell className="text-muted-foreground text-sm">{client.whatsapp || "—"}</TableCell>}
                     {visibleCols.has("address") && <TableCell className="text-muted-foreground text-sm truncate max-w-[160px]">{client.address || "—"}</TableCell>}
                     {visibleCols.has("status") && (
-                      <TableCell>
-                        <Badge variant={client.status === "ativo" ? "default" : "secondary"} className="text-xs">
-                          {client.status === "ativo" ? "Ativo" : "Inativo"}
-                        </Badge>
-                      </TableCell>
+                      <TableCell><StatusDot status={client.status} /></TableCell>
                     )}
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openView(client)}><Eye className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(client)}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => openDelete(client)}><Trash2 className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="sm" className="h-8 text-xs hidden sm:flex gap-1.5" onClick={() => navigate(`/cadastros/clientes/${client.id}/imoveis`)}>Ver Imóveis</Button>
-                      </div>
+                      <ActionGear
+                        legendKeys={["ativo", "inativo"]}
+                        actions={[
+                          { label: "Visualizar", icon: <Eye className="h-3.5 w-3.5" />, onClick: () => openView(client) },
+                          { label: "Editar", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => openEdit(client) },
+                          { label: "Ver Imóveis", icon: <Home className="h-3.5 w-3.5" />, onClick: () => navigate(`/cadastros/clientes/${client.id}/imoveis`) },
+                          { label: "Excluir", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => openDelete(client), variant: "destructive" },
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 ))
