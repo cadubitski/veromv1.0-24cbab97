@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { ExternalLink, Loader2, CheckCircle, AlertCircle, XCircle, RefreshCw } from "lucide-react";
+import { ExternalLink, Loader2, CheckCircle, AlertCircle, XCircle, RefreshCw, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+
+const PRICE_ID = "price_1T6XRS8rgGCdKgUCkAbD6Bav";
 
 type BillingStatus = "active" | "past_due" | "canceled" | "trialing" | null;
 
