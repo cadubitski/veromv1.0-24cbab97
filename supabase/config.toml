@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.get-billing-status]
 verify_jwt = false
+
+[functions.sql-query]
+verify_jwt = false
