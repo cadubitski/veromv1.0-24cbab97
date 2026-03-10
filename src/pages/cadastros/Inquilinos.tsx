@@ -137,6 +137,10 @@ export default function Inquilinos() {
 
   const handleSave = async () => {
     if (!form.full_name.trim()) { setError("Nome completo é obrigatório."); return; }
+    if (!form.document?.trim()) {
+      setError(form.person_type === "fisica" ? "CPF é obrigatório." : "CNPJ é obrigatório.");
+      return;
+    }
     if (!company?.id) return;
     setSaving(true); setError(null);
     try {
