@@ -59,8 +59,11 @@ interface Installment {
   due_date: string;
   value: number;
   management_fee_percent: number;
-  management_fee_value: number;
-  repasse_value: number;
+  management_fee_value: number | null;
+  repasse_value: number | null;
+  tax_base_value: number | null;
+  irrf_value: number | null;
+  owner_net_value: number | null;
   status: string;
   paid_at: string | null;
 }
