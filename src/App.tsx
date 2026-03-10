@@ -18,6 +18,7 @@ import GestaoAluguel from "./pages/movimentos/GestaoAluguel";
 import Repasse from "./pages/relatorios/Repasse";
 import ModelosDocumentos from "./pages/documentos/ModelosDocumentos";
 import EditorModelo from "./pages/documentos/EditorModelo";
+import TabelaIR from "./pages/cadastros/TabelaIR";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({

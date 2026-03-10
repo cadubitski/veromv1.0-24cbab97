@@ -25,6 +25,7 @@ const userNav: NavItem[] = [
       { label: "Locadores", href: "/cadastros/clientes" },
       { label: "Imóveis", href: "/cadastros/imoveis" },
       { label: "Locatários", href: "/cadastros/inquilinos" },
+      { label: "Tabela de IR", href: "/cadastros/tabela-ir" },
     ],
   },
   {
