@@ -387,9 +387,9 @@ export default function Imoveis() {
                     {visibleCols.has("sale_value") && <TableCell className="text-muted-foreground text-sm font-mono">{p.sale_value ? `R$ ${p.sale_value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}</TableCell>}
                     {visibleCols.has("area_m2") && <TableCell className="text-muted-foreground text-sm">{p.area_m2 ? `${p.area_m2} m²` : "—"}</TableCell>}
                     {visibleCols.has("status") && (
-                      <TableCell className="w-[60px]"><StatusDot status={p.status} /></TableCell>
+                      <TableCell className="w-px whitespace-nowrap"><StatusDot status={p.status} /></TableCell>
                     )}
-                    <TableCell className="text-right w-[60px]">
+                    <TableCell className="text-right w-px whitespace-nowrap">
                       <ActionGear
                         legendKeys={["disponivel", "alugado", "vendido", "inativo"]}
                         actions={[
