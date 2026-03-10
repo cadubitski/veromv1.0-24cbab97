@@ -16,6 +16,8 @@ import Imoveis from "./pages/cadastros/Imoveis";
 import Inquilinos from "./pages/cadastros/Inquilinos";
 import GestaoAluguel from "./pages/movimentos/GestaoAluguel";
 import Repasse from "./pages/relatorios/Repasse";
+import ModelosDocumentos from "./pages/documentos/ModelosDocumentos";
+import EditorModelo from "./pages/documentos/EditorModelo";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +42,8 @@ const App = () => (
             <Route path="/cadastros/inquilinos" element={<ProtectedRoute><Inquilinos /></ProtectedRoute>} />
             <Route path="/movimentos/gestao-aluguel" element={<ProtectedRoute><GestaoAluguel /></ProtectedRoute>} />
             <Route path="/relatorios/repasse" element={<ProtectedRoute><Repasse /></ProtectedRoute>} />
+            <Route path="/documentos/modelos" element={<ProtectedRoute><ModelosDocumentos /></ProtectedRoute>} />
+            <Route path="/documentos/modelos/:id" element={<ProtectedRoute><EditorModelo /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

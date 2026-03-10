@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Building2, LayoutDashboard, Users, CreditCard,
   LogOut, Menu, ChevronDown, ChevronRight,
-  Shield, BookUser, Home, Sun, Moon, TrendingUp, BarChart2
+  Shield, BookUser, Home, Sun, Moon, TrendingUp, BarChart2, FileEdit
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,13 @@ const userNav: NavItem[] = [
     icon: BarChart2,
     children: [
       { label: "Repasse", href: "/relatorios/repasse" },
+    ],
+  },
+  {
+    label: "Documentos",
+    icon: FileEdit,
+    children: [
+      { label: "Modelos de Documentos", href: "/documentos/modelos" },
     ],
   },
 ];

@@ -103,6 +103,47 @@ export type Database = {
         }
         Relationships: []
       }
+      document_templates: {
+        Row: {
+          company_id: string
+          conteudo_markdown: string
+          created_at: string
+          descricao: string | null
+          entidades_utilizadas: Json
+          id: string
+          nome_modelo: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          conteudo_markdown?: string
+          created_at?: string
+          descricao?: string | null
+          entidades_utilizadas?: Json
+          id?: string
+          nome_modelo: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          conteudo_markdown?: string
+          created_at?: string
+          descricao?: string | null
+          entidades_utilizadas?: Json
+          id?: string
+          nome_modelo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           address: string | null

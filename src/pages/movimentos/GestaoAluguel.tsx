@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import {
-  Loader2, Plus, Search, Pencil, Trash2, ChevronDown, ChevronUp, FileText, CheckCircle2, Eye, Filter,
+  Loader2, Plus, Search, Pencil, Trash2, ChevronDown, ChevronUp, FileText, CheckCircle2, Eye, Filter, Printer,
 } from "lucide-react";
 import ColumnSelector, { ColumnDef } from "@/components/ColumnSelector";
 import { StatusDot, ActionGear } from "@/components/TableActions";
@@ -105,9 +105,6 @@ const INST_LABELS: Record<string, string> = {
   atrasado: "Atrasado",
 };
 
-function formatMoney(v: number) {
-  return v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 // Searchable select component
 function SearchableSelect({
@@ -196,6 +193,45 @@ function SearchableSelect({
   );
 }
 
+interface DocumentTemplate {
+  id: string;
+  nome_modelo: string;
+  descricao: string | null;
+  conteudo_markdown: string;
+  entidades_utilizadas: string[];
+}
+
+// Simple markdown-to-HTML converter
+function markdownToHtml(md: string): string {
+  let html = md
+    // Headings
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    // Bold
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    // Italic
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // HR
+    .replace(/^---$/gm, '<hr/>')
+    // Unordered list items
+    .replace(/^\- (.+)$/gm, '<li>$1</li>')
+    // Wrap consecutive <li> in <ul>
+    .replace(/(<li>.*<\/li>(\n|$))+/g, (match) => `<ul>${match}</ul>`)
+    // Line breaks to paragraphs (double newline)
+    .split(/\n\n+/)
+    .map((block) => {
+      if (/^<(h[1-3]|ul|hr|li)/.test(block.trim())) return block;
+      return `<p>${block.replace(/\n/g, '<br/>')}</p>`;
+    })
+    .join('\n');
+  return html;
+}
+
+function formatMoney(v: number) {
+  return v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export default function GestaoContratos() {
   const { company } = useAuth();
   const [searchParams] = useSearchParams();
@@ -255,6 +291,14 @@ export default function GestaoContratos() {
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
   const [editingInstValue, setEditingInstValue] = useState<Record<string, string>>({});
   const [savingInstValue, setSavingInstValue] = useState<string | null>(null);
+
+  // Print / template
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [printContract, setPrintContract] = useState<Contract | null>(null);
+  const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [generating, setGenerating] = useState(false);
 
   const loadContracts = async () => {
     setLoading(true);
@@ -374,6 +418,108 @@ export default function GestaoContratos() {
   };
 
   const openView = (c: Contract) => { setViewContract(c); setViewDialogOpen(true); };
+
+  const openPrint = async (c: Contract) => {
+    setPrintContract(c);
+    setSelectedTemplateId("");
+    setLoadingTemplates(true);
+    setPrintDialogOpen(true);
+    const { data } = await supabase.from("document_templates").select("id, nome_modelo, descricao, conteudo_markdown, entidades_utilizadas").order("nome_modelo");
+    setTemplates((data as DocumentTemplate[]) ?? []);
+    setLoadingTemplates(false);
+  };
+
+  const handleGenerateDocument = async () => {
+    if (!selectedTemplateId || !printContract) return;
+    const template = templates.find((t) => t.id === selectedTemplateId);
+    if (!template) return;
+
+    setGenerating(true);
+    try {
+      // Fetch full contract data with relations
+      const { data: contractData } = await supabase
+        .from("rental_contracts")
+        .select("*, tenants(*), properties(*, clients(*), property_types(name))")
+        .eq("id", printContract.id)
+        .single();
+
+      if (!contractData) throw new Error("Contrato não encontrado.");
+
+      const c = contractData as any;
+      const tenant = c.tenants ?? {};
+      const property = c.properties ?? {};
+      const owner = property.clients ?? {};
+
+      // Build replacement map
+      const replacements: Record<string, string> = {
+        "{{contrato.codigo}}": c.code ?? "—",
+        "{{contrato.valor_aluguel}}": `R$ ${formatMoney(c.rent_value)}`,
+        "{{contrato.data_inicio}}": c.start_date ? format(parseISO(c.start_date), "dd/MM/yyyy") : "—",
+        "{{contrato.dia_vencimento}}": String(c.due_day ?? "—"),
+        "{{contrato.duracao_meses}}": String(c.duration_months ?? "—"),
+        "{{contrato.taxa_administracao}}": `${c.management_fee_percent ?? 0}%`,
+        "{{contrato.valor_taxa}}": `R$ ${formatMoney(c.management_fee_value ?? 0)}`,
+        "{{contrato.valor_repasse}}": `R$ ${formatMoney(c.repasse_value ?? 0)}`,
+        "{{contrato.status}}": c.status ?? "—",
+        "{{locatario.nome}}": tenant.full_name ?? "—",
+        "{{locatario.documento}}": tenant.document ?? "—",
+        "{{locatario.email}}": tenant.email ?? "—",
+        "{{locatario.telefone}}": tenant.phone ?? "—",
+        "{{locatario.whatsapp}}": tenant.whatsapp ?? "—",
+        "{{locatario.endereco}}": tenant.address ?? "—",
+        "{{locador.nome}}": owner.full_name ?? "—",
+        "{{locador.documento}}": owner.document ?? "—",
+        "{{locador.email}}": owner.email ?? "—",
+        "{{locador.telefone}}": owner.phone ?? "—",
+        "{{locador.whatsapp}}": owner.whatsapp ?? "—",
+        "{{locador.endereco}}": owner.address ?? "—",
+        "{{imovel.codigo}}": property.code ?? "—",
+        "{{imovel.endereco}}": property.address ?? "—",
+        "{{imovel.tipo}}": property.property_types?.name ?? "—",
+        "{{imovel.area_m2}}": property.area_m2 ? `${property.area_m2} m²` : "—",
+        "{{imovel.matricula}}": property.registry_number ?? "—",
+        "{{imovel.inscricao_municipal}}": property.municipal_registration ?? "—",
+        "{{imovel.valor_aluguel}}": property.rent_value ? `R$ ${formatMoney(property.rent_value)}` : "—",
+      };
+
+      // Replace all known tags
+      let content = template.conteudo_markdown;
+      for (const [tag, value] of Object.entries(replacements)) {
+        content = content.split(tag).join(value);
+      }
+      // Highlight unresolved tags
+      content = content.replace(/\{\{[^}]+\}\}/g, (match) =>
+        `<span class="unresolved">${match}</span>`
+      );
+
+      const html = markdownToHtml(content);
+
+      // Open preview window
+      const previewWin = window.open("/document-preview.html", "_blank");
+      if (!previewWin) { toast.error("Popup bloqueado. Permita popups para este site."); return; }
+
+      const sendData = () => {
+        previewWin.postMessage({ title: template.nome_modelo, html }, "*");
+      };
+
+      // Wait for ready signal from the new window, with fallback
+      const handler = (event: MessageEvent) => {
+        if (event.data?.type === "ready") {
+          sendData();
+          window.removeEventListener("message", handler);
+        }
+      };
+      window.addEventListener("message", handler);
+      // Fallback after 2s
+      setTimeout(() => { sendData(); window.removeEventListener("message", handler); }, 2000);
+
+      setPrintDialogOpen(false);
+    } catch (e: any) {
+      toast.error(e.message ?? "Erro ao gerar documento.");
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const feePercent = parseFloat(form.management_fee_percent) || 0;
   const rentValPreview = parseCurrency(form.rent_value) ?? 0;
@@ -697,6 +843,7 @@ export default function GestaoContratos() {
                       actions={[
                         { label: "Visualizar", icon: <Eye className="h-3.5 w-3.5" />, onClick: () => openView(c) },
                         { label: "Parcelas", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => openManagement(c) },
+                        { label: "Imprimir contrato", icon: <Printer className="h-3.5 w-3.5" />, onClick: () => openPrint(c) },
                         { label: "Editar", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => openEdit(c) },
                         { label: "Excluir", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => openDelete(c), variant: "destructive" },
                       ]}
@@ -966,6 +1113,65 @@ export default function GestaoContratos() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Print / Generate Document Dialog */}
+      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Imprimir Contrato</DialogTitle>
+            <DialogDescription>
+              Selecione um modelo de documento para gerar o contrato de{" "}
+              <strong>{printContract?.tenants?.full_name}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {loadingTemplates ? (
+              <div className="flex justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : templates.length === 0 ? (
+              <div className="rounded-lg border border-border/50 bg-muted/20 p-4 text-sm text-muted-foreground text-center">
+                Nenhum modelo cadastrado. Acesse{" "}
+                <a href="/documentos/modelos" className="text-primary underline">Documentos → Modelos</a>{" "}
+                para criar um modelo.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Escolha o modelo</p>
+                <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                  {templates.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setSelectedTemplateId(t.id)}
+                      className={`w-full text-left rounded-lg border px-3 py-2.5 transition-colors ${
+                        selectedTemplateId === t.id
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border/50 hover:bg-muted/40"
+                      }`}
+                    >
+                      <p className="text-sm font-medium">{t.nome_modelo}</p>
+                      {t.descricao && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{t.descricao}</p>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPrintDialogOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={handleGenerateDocument}
+              disabled={!selectedTemplateId || generating}
+              className="gap-2"
+            >
+              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+              Gerar documento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
