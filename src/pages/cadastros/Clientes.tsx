@@ -379,12 +379,12 @@ export default function Clientes() {
               <Input type="email" value={form.email ?? ""} onChange={(e) => f("email", e.target.value)} placeholder="email@exemplo.com" />
             </div>
             <div className="space-y-2">
-              <FieldLabel label="Endereço completo" tooltip="Endereço residencial ou comercial do cliente." />
+              <FieldLabel label="Endereço completo" tooltip="Endereço residencial ou comercial do locador." />
               <Input value={form.address ?? ""} onChange={(e) => f("address", e.target.value)} placeholder="Rua, número, bairro, cidade - UF" />
             </div>
             <div className="space-y-2">
-              <FieldLabel label="Observações internas" tooltip="Notas internas sobre este cliente, visíveis apenas para a equipe." />
-              <Textarea value={form.notes ?? ""} onChange={(e) => f("notes", e.target.value)} placeholder="Informações relevantes sobre este cliente..." rows={3} className="resize-none" />
+              <FieldLabel label="Observações internas" tooltip="Notas internas sobre este locador, visíveis apenas para a equipe." />
+              <Textarea value={form.notes ?? ""} onChange={(e) => f("notes", e.target.value)} placeholder="Informações relevantes sobre este locador..." rows={3} className="resize-none" />
             </div>
             {error && <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
           </div>
