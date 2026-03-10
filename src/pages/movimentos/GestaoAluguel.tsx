@@ -707,13 +707,18 @@ export default function GestaoContratos() {
   };
 
   const handleChangeStatus = async (c: Contract, newStatus: string) => {
-    await supabase.from("rental_contracts").update({ status: newStatus }).eq("id", c.id);
+    const { error: err } = await supabase.from("rental_contracts").update({ status: newStatus }).eq("id", c.id);
+    if (err) { toast.error("Erro ao atualizar status."); return; }
     if (newStatus !== "ativo") {
       await supabase.from("properties").update({ status: "disponivel" }).eq("id", c.property_id);
     }
-    loadContracts();
-    toast.success("Status do contrato atualizado.");
+    setViewDialogOpen(false);
+    setStatusChangeTarget(null);
+    await loadContracts();
+    toast.success(`Contrato ${newStatus === "encerrado" ? "encerrado" : "cancelado"} com sucesso. Imóvel liberado.`);
   };
+
+  const [statusChangeTarget, setStatusChangeTarget] = useState<{ contract: Contract; newStatus: string } | null>(null);
 
   const openManagement = async (c: Contract) => {
     setManagementContract(c);
