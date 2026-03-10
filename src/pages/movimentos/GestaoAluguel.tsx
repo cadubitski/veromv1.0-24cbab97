@@ -768,7 +768,7 @@ export default function GestaoContratos() {
     const feeVal = newVal * feeP / 100;
     const taxBase = newVal - feeVal;
 
-    // Recalculate IR for the new value
+    // Recalculate IR for the new value using competence-based bracket selection
     let irrfVal = 0;
     if (managementContract) {
       const { data: propData } = await supabase
@@ -778,12 +778,20 @@ export default function GestaoContratos() {
         .single();
       const ownerPersonType = (propData as any)?.clients?.person_type ?? "fisica";
       if (ownerPersonType === "fisica") {
-        const { data: taxBrackets } = await supabase.from("income_tax_brackets").select("*").order("range_start");
-        if (taxBrackets && taxBrackets.length > 0) {
-          const bracket = (taxBrackets as any[]).find(
-            (b) => taxBase >= b.range_start && (b.range_end == null || taxBase <= b.range_end)
+        const { data: allBrackets } = await supabase.from("income_tax_brackets").select("*").order("valid_from_date", { ascending: false });
+        if (allBrackets && allBrackets.length > 0) {
+          // Find brackets valid for this installment's competence
+          const [month, year] = inst.competence.split("/");
+          const compDate = `${year}-${month}-01`;
+          const sortedBrackets = [...(allBrackets as any[])].sort((a, b) =>
+            (b.valid_from_date ?? "2000-01-01").localeCompare(a.valid_from_date ?? "2000-01-01")
           );
-          if (bracket) irrfVal = Math.max(0, (taxBase * bracket.rate / 100) - bracket.deduction);
+          const latestValidDate = sortedBrackets.find((b) => (b.valid_from_date ?? "2000-01-01") <= compDate)?.valid_from_date;
+          if (latestValidDate) {
+            const periodBrackets = (allBrackets as any[]).filter((b) => (b.valid_from_date ?? "2000-01-01") === latestValidDate);
+            const bracket = periodBrackets.find((b: any) => taxBase >= b.range_start && (b.range_end == null || taxBase <= b.range_end));
+            if (bracket) irrfVal = Math.max(0, (taxBase * bracket.rate / 100) - bracket.deduction);
+          }
         }
       }
     }
