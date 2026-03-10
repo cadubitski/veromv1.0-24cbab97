@@ -908,9 +908,7 @@ export default function GestaoContratos() {
                         <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">R$ {formatMoney(feeV)}</TableCell>
                         <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">R$ {formatMoney(rep)}</TableCell>
                         <TableCell>
-                          <Badge variant={INST_COLORS[resolvedStatus] ?? "outline"} className="text-xs">
-                            {INST_LABELS[resolvedStatus] ?? resolvedStatus}
-                          </Badge>
+                          <StatusDot status={resolvedStatus} />
                         </TableCell>
                         <TableCell>
                           {inst.status === "pago" ? (
