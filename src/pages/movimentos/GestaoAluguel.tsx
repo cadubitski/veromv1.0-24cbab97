@@ -723,7 +723,7 @@ export default function GestaoAluguel() {
             <div className="space-y-2">
               <FieldLabel label="Locatário" tooltip="Selecione o locatário que irá locar o imóvel." required />
               <SearchableSelect
-                placeholder="Selecione o inquilino..."
+                placeholder="Selecione o locatário..."
                 value={form.tenant_id}
                 onChange={(v) => setForm((p) => ({ ...p, tenant_id: v }))}
                 items={tenantItems}
