@@ -46,7 +46,7 @@ type SortKey = "client_name" | "code" | "status" | "purpose" | "address";
 type SortDir = "asc" | "desc";
 
 const PROPERTY_COLUMNS: ColumnDef[] = [
-  { key: "client_name", label: "Proprietário", defaultVisible: true },
+  { key: "client_name", label: "Locador", defaultVisible: true },
   { key: "code", label: "Código", defaultVisible: true },
   { key: "purpose", label: "Finalidade", defaultVisible: true },
   { key: "address", label: "Endereço", defaultVisible: true },
