@@ -23,10 +23,11 @@ const statusConfig = {
 };
 
 export default function Financeiro() {
-  const { user, company } = useAuth();
+  const { user, company, refreshBilling } = useAuth();
   const [billing, setBilling] = useState<BillingInfo | null>(null);
   const [loadingBilling, setLoadingBilling] = useState(true);
   const [loadingPortal, setLoadingPortal] = useState(false);
+  const [loadingRefresh, setLoadingRefresh] = useState(false);
   const [error, setError] = useState("");
 
   const fetchBilling = async () => {
@@ -139,12 +140,24 @@ export default function Financeiro() {
                     Sua assinatura foi cancelada. Renove para continuar usando o Verom.
                   </div>
                 )}
-                <button
-                  onClick={fetchBilling}
-                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={loadingRefresh}
+                  onClick={async () => {
+                    setLoadingRefresh(true);
+                    await Promise.all([fetchBilling(), refreshBilling()]);
+                    setLoadingRefresh(false);
+                  }}
+                  className="gap-2"
                 >
-                  <RefreshCw className="h-3 w-3" /> Atualizar status
-                </button>
+                  {loadingRefresh ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  )}
+                  Verificar assinatura
+                </Button>
               </CardContent>
             </Card>
 
