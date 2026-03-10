@@ -42,7 +42,7 @@ const userNav: NavItem[] = [
     ],
   },
   {
-    label: "Documentos",
+    label: "Configurações",
     icon: FileEdit,
     children: [
       { label: "Modelos de Documentos", href: "/documentos/modelos" },
