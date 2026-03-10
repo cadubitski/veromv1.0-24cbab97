@@ -186,32 +186,65 @@ export default function Financeiro() {
               </CardContent>
             </Card>
 
-            {/* Portal Card */}
+            {/* Portal/Checkout Card */}
             <Card className="shadow-card border-0">
               <CardHeader>
-                <CardTitle className="text-base">Portal do Cliente</CardTitle>
-                <CardDescription>Acesse faturas, histórico e dados de pagamento</CardDescription>
+                <CardTitle className="text-base">
+                  {needsSubscription ? "Assinar o Verom" : "Portal do Cliente"}
+                </CardTitle>
+                <CardDescription>
+                  {needsSubscription
+                    ? "Assine o plano para ter acesso completo ao sistema"
+                    : "Acesse faturas, histórico e dados de pagamento"}
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Visualize todas as suas faturas, altere o método de pagamento e gerencie os dados da assinatura
-                  diretamente no portal seguro.
-                </p>
+                {needsSubscription ? (
+                  <p className="text-sm text-muted-foreground">
+                    Sua conta não possui uma assinatura ativa. Clique abaixo para assinar o Plano Profissional
+                    e restaurar o acesso completo ao sistema.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Visualize todas as suas faturas, altere o método de pagamento e gerencie os dados da assinatura
+                    diretamente no portal seguro.
+                  </p>
+                )}
                 {error && (
                   <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
                 )}
-                <Button
-                  onClick={openCustomerPortal}
-                  disabled={loadingPortal}
-                  className="gap-2"
-                >
-                  {loadingPortal ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                <div className="flex flex-col gap-2">
+                  {needsSubscription ? (
+                    <Button onClick={openCheckout} disabled={loadingCheckout} className="gap-2">
+                      {loadingCheckout ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <CreditCard className="h-4 w-4" />
+                      )}
+                      Assinar agora — R$29,90/mês
+                    </Button>
                   ) : (
-                    <ExternalLink className="h-4 w-4" />
+                    <Button onClick={openCustomerPortal} disabled={loadingPortal} className="gap-2">
+                      {loadingPortal ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ExternalLink className="h-4 w-4" />
+                      )}
+                      Ver faturas e gerenciar assinatura
+                    </Button>
                   )}
-                  Ver faturas e gerenciar assinatura
-                </Button>
+                  {/* Se past_due, mostra checkout como alternativa ao portal */}
+                  {billing?.status === "past_due" && (
+                    <Button variant="outline" onClick={openCheckout} disabled={loadingCheckout} className="gap-2">
+                      {loadingCheckout ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <CreditCard className="h-4 w-4" />
+                      )}
+                      Regularizar com novo cartão
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
