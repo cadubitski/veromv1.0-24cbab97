@@ -803,8 +803,8 @@ export default function GestaoContratos() {
                 {visibleCols.has("start_date") && <TableHead className={thClass} onClick={() => handleSort("start_date")}>Início <SortIcon col="start_date" /></TableHead>}
                 {visibleCols.has("due_day") && <TableHead className={thClass} onClick={() => handleSort("due_day")}>Venc. <SortIcon col="due_day" /></TableHead>}
                 {visibleCols.has("duration_months") && <TableHead className="whitespace-nowrap">Período</TableHead>}
-                {visibleCols.has("status") && <TableHead className={thClass} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>}
-                <TableHead className="text-right w-[120px]">Ações</TableHead>
+                {visibleCols.has("status") && <TableHead className={`${thClass} w-[60px]`} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>}
+                <TableHead className="text-right w-[60px]">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -835,9 +835,9 @@ export default function GestaoContratos() {
                   {visibleCols.has("due_day") && <TableCell className="text-muted-foreground text-sm">Dia {c.due_day}</TableCell>}
                   {visibleCols.has("duration_months") && <TableCell className="text-muted-foreground text-sm">{c.duration_months}m</TableCell>}
                   {visibleCols.has("status") && (
-                    <TableCell><StatusDot status={c.status} /></TableCell>
+                    <TableCell className="w-[60px]"><StatusDot status={c.status} /></TableCell>
                   )}
-                  <TableCell className="text-right w-[80px]">
+                  <TableCell className="text-right w-[60px]">
                     <ActionGear
                       legendKeys={["ativo", "encerrado", "cancelado"]}
                       actions={[

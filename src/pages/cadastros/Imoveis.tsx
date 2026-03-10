@@ -361,8 +361,8 @@ export default function Imoveis() {
                 {visibleCols.has("rent_value") && <TableHead>Aluguel</TableHead>}
                 {visibleCols.has("sale_value") && <TableHead>Venda</TableHead>}
                 {visibleCols.has("area_m2") && <TableHead>Área</TableHead>}
-                {visibleCols.has("status") && <TableHead className={thClass} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>}
-                <TableHead className="text-right">Ações</TableHead>
+                {visibleCols.has("status") && <TableHead className={`${thClass} w-[60px]`} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>}
+                <TableHead className="text-right w-[60px]">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -387,9 +387,9 @@ export default function Imoveis() {
                     {visibleCols.has("sale_value") && <TableCell className="text-muted-foreground text-sm font-mono">{p.sale_value ? `R$ ${p.sale_value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}</TableCell>}
                     {visibleCols.has("area_m2") && <TableCell className="text-muted-foreground text-sm">{p.area_m2 ? `${p.area_m2} m²` : "—"}</TableCell>}
                     {visibleCols.has("status") && (
-                      <TableCell><StatusDot status={p.status} /></TableCell>
+                      <TableCell className="w-[60px]"><StatusDot status={p.status} /></TableCell>
                     )}
-                    <TableCell className="text-right">
+                    <TableCell className="text-right w-[60px]">
                       <ActionGear
                         legendKeys={["disponivel", "alugado", "vendido", "inativo"]}
                         actions={[

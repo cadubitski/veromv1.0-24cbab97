@@ -212,8 +212,8 @@ export default function Inquilinos() {
                 {visibleCols.has("whatsapp") && <TableHead>WhatsApp</TableHead>}
                 {visibleCols.has("email") && <TableHead>E-mail</TableHead>}
                 {visibleCols.has("address") && <TableHead>Endereço</TableHead>}
-                {visibleCols.has("status") && <TableHead className={thClass} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>}
-                <TableHead className="text-right">Ações</TableHead>
+                {visibleCols.has("status") && <TableHead className={`${thClass} w-[60px]`} onClick={() => handleSort("status")}>Status <SortIcon col="status" /></TableHead>}
+                <TableHead className="text-right w-[60px]">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -233,9 +233,9 @@ export default function Inquilinos() {
                   {visibleCols.has("email") && <TableCell className="text-muted-foreground text-sm">{t.email || "—"}</TableCell>}
                   {visibleCols.has("address") && <TableCell className="text-muted-foreground text-sm truncate max-w-[160px]">{t.address || "—"}</TableCell>}
                   {visibleCols.has("status") && (
-                    <TableCell><StatusDot status={t.status} /></TableCell>
+                    <TableCell className="w-[60px]"><StatusDot status={t.status} /></TableCell>
                   )}
-                  <TableCell className="text-right">
+                  <TableCell className="text-right w-[60px]">
                     <ActionGear
                       legendKeys={["ativo", "inativo"]}
                       actions={[
