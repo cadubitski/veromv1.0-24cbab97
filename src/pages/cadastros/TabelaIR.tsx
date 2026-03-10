@@ -358,9 +358,9 @@ export default function TabelaIR() {
                 />
                 <Input
                   value={form.range_start}
-                  onChange={(e) => f("range_start", e.target.value)}
+                  onChange={(e) => f("range_start", maskCurrency(e.target.value))}
                   placeholder="0,00"
-                  inputMode="decimal"
+                  inputMode="numeric"
                 />
               </div>
               <div className="space-y-2">
@@ -370,9 +370,9 @@ export default function TabelaIR() {
                 />
                 <Input
                   value={form.range_end}
-                  onChange={(e) => f("range_end", e.target.value)}
+                  onChange={(e) => f("range_end", maskCurrency(e.target.value))}
                   placeholder="Sem limite"
-                  inputMode="decimal"
+                  inputMode="numeric"
                 />
               </div>
             </div>
@@ -398,9 +398,9 @@ export default function TabelaIR() {
                 />
                 <Input
                   value={form.deduction}
-                  onChange={(e) => f("deduction", e.target.value)}
+                  onChange={(e) => f("deduction", maskCurrency(e.target.value))}
                   placeholder="0,00"
-                  inputMode="decimal"
+                  inputMode="numeric"
                 />
               </div>
             </div>
