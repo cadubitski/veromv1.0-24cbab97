@@ -137,6 +137,10 @@ export default function Inquilinos() {
 
   const handleSave = async () => {
     if (!form.full_name.trim()) { setError("Nome completo é obrigatório."); return; }
+    if (!form.document?.trim()) {
+      setError(form.person_type === "fisica" ? "CPF é obrigatório." : "CNPJ é obrigatório.");
+      return;
+    }
     if (!company?.id) return;
     setSaving(true); setError(null);
     try {
@@ -287,7 +291,7 @@ export default function Inquilinos() {
               <Input value={form.full_name} onChange={(e) => f("full_name", e.target.value)} placeholder="Ex: Maria Oliveira" />
             </div>
             <div className="space-y-2">
-              <FieldLabel label={form.person_type === "fisica" ? "CPF" : "CNPJ"} tooltip={form.person_type === "fisica" ? "CPF do locatário." : "CNPJ da empresa locatária."} />
+              <FieldLabel label={form.person_type === "fisica" ? "CPF" : "CNPJ"} tooltip={form.person_type === "fisica" ? "CPF do locatário." : "CNPJ da empresa locatária."} required />
               <Input value={form.document ?? ""} onChange={(e) => handleDoc(e.target.value)} placeholder={form.person_type === "fisica" ? "000.000.000-00" : "00.000.000/0000-00"} inputMode="numeric" />
             </div>
             <div className="grid grid-cols-2 gap-4">
