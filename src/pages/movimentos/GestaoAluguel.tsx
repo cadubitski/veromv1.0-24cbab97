@@ -64,6 +64,8 @@ interface Installment {
   tax_base_value: number | null;
   irrf_value: number | null;
   owner_net_value: number | null;
+  ir_rate: number | null;
+  ir_deduction: number | null;
   status: string;
   paid_at: string | null;
 }
