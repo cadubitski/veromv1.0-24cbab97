@@ -772,6 +772,8 @@ export default function GestaoContratos() {
 
     // Recalculate IR for the new value using competence-based bracket selection
     let irrfVal = 0;
+    let appliedRate: number | null = null;
+    let appliedDeduction: number | null = null;
     if (managementContract) {
       const { data: propData } = await supabase
         .from("properties")
@@ -782,7 +784,6 @@ export default function GestaoContratos() {
       if (ownerPersonType === "fisica") {
         const { data: allBrackets } = await supabase.from("income_tax_brackets").select("*").order("valid_from_date", { ascending: false });
         if (allBrackets && allBrackets.length > 0) {
-          // Find brackets valid for this installment's competence
           const [month, year] = inst.competence.split("/");
           const compDate = `${year}-${month}-01`;
           const sortedBrackets = [...(allBrackets as any[])].sort((a, b) =>
@@ -792,7 +793,11 @@ export default function GestaoContratos() {
           if (latestValidDate) {
             const periodBrackets = (allBrackets as any[]).filter((b) => (b.valid_from_date ?? "2000-01-01") === latestValidDate);
             const bracket = periodBrackets.find((b: any) => taxBase >= b.range_start && (b.range_end == null || taxBase <= b.range_end));
-            if (bracket) irrfVal = Math.max(0, (taxBase * bracket.rate / 100) - bracket.deduction);
+            if (bracket) {
+              appliedRate = bracket.rate;
+              appliedDeduction = bracket.deduction;
+              irrfVal = Math.max(0, (taxBase * bracket.rate / 100) - bracket.deduction);
+            }
           }
         }
       }
@@ -806,6 +811,8 @@ export default function GestaoContratos() {
       irrf_value: irrfVal,
       owner_net_value: ownerNet,
       repasse_value: ownerNet,
+      ir_rate: appliedRate,
+      ir_deduction: appliedDeduction,
       updated_at: new Date().toISOString(),
     }).eq("id", inst.id);
     if (err) { toast.error("Erro ao atualizar valor."); }
@@ -814,6 +821,7 @@ export default function GestaoContratos() {
       setInstallments((prev) => prev.map((i) => i.id === inst.id ? {
         ...i, value: newVal, management_fee_value: feeVal,
         tax_base_value: taxBase, irrf_value: irrfVal, owner_net_value: ownerNet, repasse_value: ownerNet,
+        ir_rate: appliedRate, ir_deduction: appliedDeduction,
       } : i));
       setEditingInstValue((p) => { const n = { ...p }; delete n[inst.id]; return n; });
     }
