@@ -1258,6 +1258,33 @@ export default function GestaoContratos() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Status Change Confirmation Dialog */}
+      <AlertDialog open={!!statusChangeTarget} onOpenChange={(open) => { if (!open) setStatusChangeTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {statusChangeTarget?.newStatus === "encerrado" ? "Encerrar contrato" : "Cancelar contrato"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja{" "}
+              <strong>{statusChangeTarget?.newStatus === "encerrado" ? "encerrar" : "cancelar"}</strong> o contrato de{" "}
+              <strong>{statusChangeTarget?.contract.tenants?.full_name}</strong>?
+              <br />
+              O imóvel <strong>{statusChangeTarget?.contract.properties?.code}</strong> será automaticamente marcado como <strong>disponível</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => { if (statusChangeTarget) handleChangeStatus(statusChangeTarget.contract, statusChangeTarget.newStatus); }}
+            >
+              {statusChangeTarget?.newStatus === "encerrado" ? "Encerrar" : "Cancelar contrato"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }
