@@ -263,6 +263,7 @@ export type Database = {
       }
       rental_contracts: {
         Row: {
+          code: string | null
           company_id: string
           created_at: string
           due_day: number
@@ -279,6 +280,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          code?: string | null
           company_id: string
           created_at?: string
           due_day: number
@@ -295,6 +297,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          code?: string | null
           company_id?: string
           created_at?: string
           due_day?: number

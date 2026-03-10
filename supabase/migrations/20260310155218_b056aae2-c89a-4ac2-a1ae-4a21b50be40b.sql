@@ -1,0 +1,2 @@
+ALTER TABLE public.rental_contracts ADD COLUMN IF NOT EXISTS code TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS rental_contracts_code_company_unique ON public.rental_contracts(company_id, code) WHERE code IS NOT NULL;
