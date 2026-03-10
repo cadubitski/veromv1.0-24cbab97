@@ -313,9 +313,9 @@ export default function Clientes() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg flex flex-col max-h-[90vh]">
           <DialogHeader className="shrink-0">
-            <DialogTitle>{editClient ? "Editar cliente" : "Novo cliente"}</DialogTitle>
+            <DialogTitle>{editClient ? "Editar locador" : "Novo locador"}</DialogTitle>
             <DialogDescription>
-              {editClient ? "Atualize os dados do cliente." : "Preencha os dados para cadastrar um novo cliente."}
+              {editClient ? "Atualize os dados do locador." : "Preencha os dados para cadastrar um novo locador."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2 overflow-y-auto flex-1 pr-1">
