@@ -835,9 +835,9 @@ export default function GestaoContratos() {
                   {visibleCols.has("due_day") && <TableCell className="text-muted-foreground text-sm">Dia {c.due_day}</TableCell>}
                   {visibleCols.has("duration_months") && <TableCell className="text-muted-foreground text-sm">{c.duration_months}m</TableCell>}
                   {visibleCols.has("status") && (
-                    <TableCell><StatusDot status={c.status} /></TableCell>
+                    <TableCell className="w-[60px]"><StatusDot status={c.status} /></TableCell>
                   )}
-                  <TableCell className="text-right w-[80px]">
+                  <TableCell className="text-right w-[60px]">
                     <ActionGear
                       legendKeys={["ativo", "encerrado", "cancelado"]}
                       actions={[
