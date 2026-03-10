@@ -178,10 +178,10 @@ export default function Inquilinos() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Inquilinos</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Gerencie os inquilinos / locatários da sua imobiliária.</p>
+            <h1 className="text-2xl font-bold tracking-tight">Locatários</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Gerencie os locatários da sua imobiliária.</p>
           </div>
-          <Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" /> Novo Inquilino</Button>
+          <Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" /> Novo Locatário</Button>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
