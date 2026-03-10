@@ -721,7 +721,7 @@ export default function GestaoAluguel() {
           </DialogHeader>
           <div className="space-y-4 py-2 overflow-y-auto flex-1 pr-1">
             <div className="space-y-2">
-              <FieldLabel label="Inquilino" tooltip="Selecione o inquilino que irá locar o imóvel." required />
+              <FieldLabel label="Locatário" tooltip="Selecione o locatário que irá locar o imóvel." required />
               <SearchableSelect
                 placeholder="Selecione o inquilino..."
                 value={form.tenant_id}
