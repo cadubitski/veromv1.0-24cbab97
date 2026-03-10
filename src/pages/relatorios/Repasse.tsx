@@ -145,10 +145,10 @@ export default function Repasse() {
     exportData.push({
       "Competência": "TOTAL",
       "Vencimento": "",
-      "Inquilino": "",
+      "Locatário": "",
       "Imóvel": "",
       "Endereço": "",
-      "Proprietário": "",
+      "Locador": "",
       "Valor Aluguel": totals.value,
       "Taxa Admin (%)": 0,
       "Valor Admin": totals.fee,
