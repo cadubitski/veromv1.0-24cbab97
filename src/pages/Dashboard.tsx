@@ -96,7 +96,7 @@ export default function Dashboard() {
   useEffect(() => { loadCashFlow(); }, [company?.id, cfStart, cfEnd]);
 
   const kpis = [
-    { label: "Clientes ativos", value: activeClients, icon: UserCheck, href: "/cadastros/clientes", description: "Clique para ver os clientes" },
+    { label: "Locadores ativos", value: activeClients, icon: UserCheck, href: "/cadastros/clientes", description: "Clique para ver os locadores" },
     { label: "Imóveis cadastrados", value: totalProperties, icon: Home, href: "/cadastros/imoveis", description: "Total de imóveis no portfólio" },
     { label: "Imóveis disponíveis", value: availableProperties, icon: Building2, href: "/cadastros/imoveis", description: "Prontos para locação ou venda" },
     { label: "Empresa", value: company?.name ?? "—", icon: CreditCard, href: null, description: company?.cnpj ? company.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : "CNPJ não informado" },

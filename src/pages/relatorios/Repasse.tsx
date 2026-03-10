@@ -201,9 +201,9 @@ export default function Repasse() {
               <TableRow className="border-border/40">
                 <TableHead>Competência</TableHead>
                 <TableHead>Vencimento</TableHead>
-                <TableHead>Inquilino</TableHead>
+                <TableHead>Locatário</TableHead>
                 <TableHead className="hidden md:table-cell">Imóvel</TableHead>
-                <TableHead className="hidden lg:table-cell">Proprietário</TableHead>
+                <TableHead className="hidden lg:table-cell">Locador</TableHead>
                 <TableHead className="text-right">Aluguel</TableHead>
                 <TableHead className="text-right hidden md:table-cell">Taxa Admin</TableHead>
                 <TableHead className="text-right">Repasse</TableHead>

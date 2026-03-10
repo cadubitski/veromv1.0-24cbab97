@@ -22,9 +22,9 @@ const userNav: NavItem[] = [
     label: "Cadastros",
     icon: BookUser,
     children: [
-      { label: "Clientes", href: "/cadastros/clientes" },
+      { label: "Locadores", href: "/cadastros/clientes" },
       { label: "Imóveis", href: "/cadastros/imoveis" },
-      { label: "Inquilinos", href: "/cadastros/inquilinos" },
+      { label: "Locatários", href: "/cadastros/inquilinos" },
     ],
   },
   {

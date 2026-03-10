@@ -351,7 +351,7 @@ export default function Imoveis() {
               <TableRow className="border-border/40">
                 {!clientId && visibleCols.has("client_name") && (
                   <TableHead className={thClass} onClick={() => handleSort("client_name")}>
-                    Proprietário <SortIcon col="client_name" />
+                    Locador <SortIcon col="client_name" />
                   </TableHead>
                 )}
                 {visibleCols.has("code") && <TableHead className={thClass} onClick={() => handleSort("code")}>Código <SortIcon col="code" /></TableHead>}

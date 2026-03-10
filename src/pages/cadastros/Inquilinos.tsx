@@ -349,7 +349,7 @@ export default function Inquilinos() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir inquilino</AlertDialogTitle>
+            <AlertDialogTitle>Excluir locatário</AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja excluir <strong>{deleteTarget?.full_name}</strong>? Esta ação não pode ser desfeita.
             </AlertDialogDescription>

@@ -561,7 +561,7 @@ export default function GestaoAluguel() {
   const propertyItems = properties.map((p) => ({
     id: p.id,
     label: p.code + (p.address ? ` – ${p.address.slice(0, 30)}` : ""),
-    sublabel: p.client_name ? `Proprietário: ${p.client_name}` : "",
+    sublabel: p.client_name ? `Locador: ${p.client_name}` : "",
   }));
 
   return (
