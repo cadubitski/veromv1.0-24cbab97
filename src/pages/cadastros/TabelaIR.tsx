@@ -103,6 +103,7 @@ export default function TabelaIR() {
       range_end: b.range_end != null ? String(b.range_end) : "",
       rate: String(b.rate),
       deduction: String(b.deduction),
+      valid_from_date: b.valid_from_date ?? "",
     });
     setError(null);
     setDialogOpen(true);
@@ -110,11 +111,89 @@ export default function TabelaIR() {
 
   const openDelete = (b: TaxBracket) => { setDeleteTarget(b); setDeleteDialogOpen(true); };
 
+  // Recalculate all unpaid installments using the updated tax brackets
+  const recalcUnpaidInstallments = async () => {
+    if (!company?.id) return;
+    try {
+      // Fetch all unpaid installments for this company
+      const { data: unpaidInsts } = await supabase
+        .from("rental_installments")
+        .select("id, contract_id, competence, value, management_fee_percent, status")
+        .eq("company_id", company.id)
+        .neq("status", "pago");
+      if (!unpaidInsts || unpaidInsts.length === 0) return;
+
+      // Fetch updated brackets
+      const { data: allBrackets } = await supabase
+        .from("income_tax_brackets")
+        .select("*")
+        .eq("company_id", company.id);
+      if (!allBrackets) return;
+
+      // Fetch contracts with property owner type
+      const contractIds = [...new Set(unpaidInsts.map((i: any) => i.contract_id))];
+      const { data: contracts } = await supabase
+        .from("rental_contracts")
+        .select("id, property_id")
+        .in("id", contractIds);
+      if (!contracts) return;
+
+      const propertyIds = [...new Set(contracts.map((c: any) => c.property_id))];
+      const { data: props } = await supabase
+        .from("properties")
+        .select("id, clients(person_type)")
+        .in("id", propertyIds);
+      const propMap: Record<string, string> = {};
+      (props ?? []).forEach((p: any) => { propMap[p.id] = p.clients?.person_type ?? "fisica"; });
+      const contractMap: Record<string, string> = {};
+      (contracts ?? []).forEach((c: any) => { contractMap[c.id] = c.property_id; });
+
+      const getBracketsForCompetence = (competence: string, brackets: any[]): any[] => {
+        if (!brackets || brackets.length === 0) return [];
+        const [month, year] = competence.split("/");
+        const compDate = `${year}-${month}-01`;
+        const sorted = [...brackets].sort((a, b) =>
+          (b.valid_from_date ?? "2000-01-01").localeCompare(a.valid_from_date ?? "2000-01-01")
+        );
+        const latestValidDate = sorted.find((b) => (b.valid_from_date ?? "2000-01-01") <= compDate)?.valid_from_date;
+        if (!latestValidDate) return [];
+        return brackets.filter((b) => (b.valid_from_date ?? "2000-01-01") === latestValidDate);
+      };
+
+      const updates = (unpaidInsts as any[]).map((inst) => {
+        const feeP = inst.management_fee_percent ?? 0;
+        const feeVal = inst.value * feeP / 100;
+        const taxBase = inst.value - feeVal;
+        const propertyId = contractMap[inst.contract_id];
+        const ownerPersonType = propertyId ? (propMap[propertyId] ?? "fisica") : "fisica";
+        let irrfVal = 0;
+        if (ownerPersonType === "fisica") {
+          const brackets = getBracketsForCompetence(inst.competence, allBrackets as any[]);
+          const bracket = brackets.find((b: any) => taxBase >= b.range_start && (b.range_end == null || taxBase <= b.range_end));
+          if (bracket) irrfVal = Math.max(0, (taxBase * bracket.rate / 100) - bracket.deduction);
+        }
+        const ownerNet = taxBase - irrfVal;
+        return supabase.from("rental_installments").update({
+          management_fee_value: feeVal,
+          tax_base_value: taxBase,
+          irrf_value: irrfVal,
+          owner_net_value: ownerNet,
+          repasse_value: ownerNet,
+          updated_at: new Date().toISOString(),
+        }).eq("id", inst.id);
+      });
+      await Promise.all(updates);
+    } catch (e) {
+      console.error("Erro ao recalcular parcelas:", e);
+    }
+  };
+
   const handleSave = async () => {
     const rangeStart = parseFloat(form.range_start.replace(",", "."));
     const rangeEnd = form.range_end.trim() ? parseFloat(form.range_end.replace(",", ".")) : null;
     const rate = parseFloat(form.rate.replace(",", "."));
     const deduction = parseFloat(form.deduction.replace(",", ".") || "0");
+    if (!form.valid_from_date.trim()) { setError("Data de vigência é obrigatória."); return; }
 
     if (isNaN(rangeStart) || rangeStart < 0) { setError("Início da faixa inválido."); return; }
     if (rangeEnd !== null && (isNaN(rangeEnd) || rangeEnd <= rangeStart)) { setError("Fim da faixa deve ser maior que o início."); return; }
@@ -124,7 +203,7 @@ export default function TabelaIR() {
 
     setSaving(true); setError(null);
     try {
-      const payload = { range_start: rangeStart, range_end: rangeEnd, rate, deduction };
+      const payload = { range_start: rangeStart, range_end: rangeEnd, rate, deduction, valid_from_date: form.valid_from_date };
       if (editBracket) {
         const { error: err } = await supabase.from("income_tax_brackets").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editBracket.id);
         if (err) throw err;
@@ -135,7 +214,10 @@ export default function TabelaIR() {
         toast.success("Faixa criada com sucesso.");
       }
       setDialogOpen(false);
-      load();
+      await load();
+      // Recalc unpaid installments after brackets change
+      await recalcUnpaidInstallments();
+      toast.info("Parcelas em aberto recalculadas com a nova vigência.");
     } catch (e: any) { setError(e.message); }
     finally { setSaving(false); }
   };
