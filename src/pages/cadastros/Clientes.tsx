@@ -298,7 +298,7 @@ export default function Clientes() {
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openView(client)}><Eye className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(client)}><Pencil className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => openDelete(client)}><Trash2 className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="sm" className="h-8 text-xs hidden sm:flex gap-1.5" onClick={() => navigate(`/cadastros/clientes/${client.id}/imoveis`)}>Imóveis</Button>
+                        <Button variant="ghost" size="sm" className="h-8 text-xs hidden sm:flex gap-1.5" onClick={() => navigate(`/cadastros/clientes/${client.id}/imoveis`)}>Ver Imóveis</Button>
                       </div>
                     </TableCell>
                   </TableRow>
