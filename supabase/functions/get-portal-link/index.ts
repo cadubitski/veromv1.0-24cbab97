@@ -4,9 +4,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const BILLING_URL = "https://idrjkzqgmvooqiegandx.supabase.co";
-const BILLING_ANON =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkcmprenFnbXZvb3FpZWdhbmR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgwMzI1ODAsImV4cCI6MjAyMzYwODU4MH0.kzrEyOz3JBrSzJHjSFDrN8cqMmjcxAl1MZnfTy2JL8s";
+const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -14,43 +12,81 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { customer_email, saas_key } = await req.json();
+    const { customer_email } = await req.json();
 
-    if (!customer_email || !saas_key) {
+    if (!customer_email) {
       return new Response(
-        JSON.stringify({ error: "Campos obrigatórios ausentes: customer_email, saas_key" }),
+        JSON.stringify({ error: "customer_email é obrigatório" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const res = await fetch(`${BILLING_URL}/functions/v1/billing-core/stripe/portal-link`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: BILLING_ANON,
-        Authorization: `Bearer ${BILLING_ANON}`,
-      },
-      body: JSON.stringify({ customer_email, saas_key }),
-    });
-
-    const data = await res.json();
-    console.log(`portal-link status: ${res.status}`, data);
-
-    if (res.ok) {
-      const url = data?.url || data?.portal_url || data?.portalUrl;
-      if (url) {
-        return new Response(
-          JSON.stringify({ url }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+    if (!STRIPE_SECRET_KEY) {
+      return new Response(
+        JSON.stringify({ error: "Stripe não configurado" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Return the actual error from billing-core for better debugging
-    const errorMsg = data?.error || data?.message || `Erro ${res.status} no billing-core`;
+    // 1. Busca o customer pelo email no Stripe
+    const searchRes = await fetch(
+      `https://api.stripe.com/v1/customers/search?query=email:'${encodeURIComponent(customer_email)}'&limit=1`,
+      {
+        headers: {
+          Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+        },
+      }
+    );
+
+    const searchData = await searchRes.json();
+    console.log("Stripe customer search:", searchRes.status, searchData);
+
+    if (!searchRes.ok) {
+      return new Response(
+        JSON.stringify({ error: searchData?.error?.message ?? "Erro ao buscar cliente no Stripe" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const customer = searchData?.data?.[0];
+    if (!customer) {
+      return new Response(
+        JSON.stringify({ error: "Cliente não encontrado no Stripe para este e-mail" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 2. Cria a sessão do Customer Portal
+    const origin = req.headers.get("origin") || "https://verom.lovable.app";
+    const returnUrl = `${origin}/admin/financeiro`;
+
+    const portalBody = new URLSearchParams({
+      customer: customer.id,
+      return_url: returnUrl,
+    });
+
+    const portalRes = await fetch("https://api.stripe.com/v1/billing_portal/sessions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: portalBody.toString(),
+    });
+
+    const portalData = await portalRes.json();
+    console.log("Stripe portal session:", portalRes.status, portalData);
+
+    if (!portalRes.ok) {
+      return new Response(
+        JSON.stringify({ error: portalData?.error?.message ?? "Erro ao criar portal Stripe" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
-      JSON.stringify({ error: errorMsg }),
-      { status: res.status >= 400 ? res.status : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ url: portalData.url }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
     console.error("get-portal-link error:", err);
