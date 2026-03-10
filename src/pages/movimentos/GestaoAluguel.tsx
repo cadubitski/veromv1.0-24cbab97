@@ -843,6 +843,7 @@ export default function GestaoContratos() {
                       actions={[
                         { label: "Visualizar", icon: <Eye className="h-3.5 w-3.5" />, onClick: () => openView(c) },
                         { label: "Parcelas", icon: <FileText className="h-3.5 w-3.5" />, onClick: () => openManagement(c) },
+                        { label: "Imprimir contrato", icon: <Printer className="h-3.5 w-3.5" />, onClick: () => openPrint(c) },
                         { label: "Editar", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => openEdit(c) },
                         { label: "Excluir", icon: <Trash2 className="h-3.5 w-3.5" />, onClick: () => openDelete(c), variant: "destructive" },
                       ]}
