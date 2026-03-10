@@ -688,10 +688,10 @@ export default function GestaoAluguel() {
           {viewContract && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
-                <div><p className="text-muted-foreground text-xs">Inquilino</p><p className="font-medium">{viewContract.tenants?.full_name ?? "—"}</p></div>
+                <div><p className="text-muted-foreground text-xs">Locatário</p><p className="font-medium">{viewContract.tenants?.full_name ?? "—"}</p></div>
                 <div><p className="text-muted-foreground text-xs">Imóvel</p><p className="font-medium">{viewContract.properties?.code ?? "—"}</p></div>
                 <div><p className="text-muted-foreground text-xs">Endereço</p><p>{viewContract.properties?.address ?? "—"}</p></div>
-                <div><p className="text-muted-foreground text-xs">Proprietário</p><p>{(viewContract.properties as any)?.clients?.full_name ?? "—"}</p></div>
+                <div><p className="text-muted-foreground text-xs">Locador</p><p>{(viewContract.properties as any)?.clients?.full_name ?? "—"}</p></div>
                 <div><p className="text-muted-foreground text-xs">Valor aluguel</p><p className="font-mono">R$ {formatMoney(viewContract.rent_value)}</p></div>
                 <div><p className="text-muted-foreground text-xs">Início</p><p>{format(parseISO(viewContract.start_date), "dd/MM/yyyy")}</p></div>
                 <div><p className="text-muted-foreground text-xs">Vencimento</p><p>Dia {viewContract.due_day}</p></div>
