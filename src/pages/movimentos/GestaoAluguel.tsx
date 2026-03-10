@@ -599,8 +599,8 @@ export default function GestaoAluguel() {
         {showFilters && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 p-4 rounded-xl border border-border/40 bg-muted/20">
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Inquilino</p>
-              <Input placeholder="Nome do inquilino" value={filterTenant} onChange={(e) => setFilterTenant(e.target.value)} className="h-8 text-sm" />
+              <p className="text-xs text-muted-foreground">Locatário</p>
+              <Input placeholder="Nome do locatário" value={filterTenant} onChange={(e) => setFilterTenant(e.target.value)} className="h-8 text-sm" />
             </div>
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">Imóvel</p>
