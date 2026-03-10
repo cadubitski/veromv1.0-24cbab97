@@ -35,7 +35,7 @@ function BillingBlockedScreen() {
 }
 
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-  const { user, role, loading, billingStatus, billingLoading } = useAuth();
+  const { user, role, loading, billingStatus } = useAuth();
   const location = useLocation();
 
   if (loading) {
