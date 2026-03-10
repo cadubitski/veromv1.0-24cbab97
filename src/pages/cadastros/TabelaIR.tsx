@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { maskCurrency, parseCurrency } from "@/lib/masks";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -99,10 +100,10 @@ export default function TabelaIR() {
   const openEdit = (b: TaxBracket) => {
     setEditBracket(b);
     setForm({
-      range_start: String(b.range_start),
-      range_end: b.range_end != null ? String(b.range_end) : "",
+      range_start: maskCurrency(String(Math.round(b.range_start * 100))),
+      range_end: b.range_end != null ? maskCurrency(String(Math.round(b.range_end * 100))) : "",
       rate: String(b.rate),
-      deduction: String(b.deduction),
+      deduction: maskCurrency(String(Math.round(b.deduction * 100))),
       valid_from_date: b.valid_from_date ?? "",
     });
     setError(null);
@@ -197,10 +198,10 @@ export default function TabelaIR() {
   };
 
   const handleSave = async () => {
-    const rangeStart = parseFloat(form.range_start.replace(",", "."));
-    const rangeEnd = form.range_end.trim() ? parseFloat(form.range_end.replace(",", ".")) : null;
+    const rangeStart = parseCurrency(form.range_start) ?? NaN;
+    const rangeEnd = form.range_end.trim() ? (parseCurrency(form.range_end) ?? null) : null;
     const rate = parseFloat(form.rate.replace(",", "."));
-    const deduction = parseFloat(form.deduction.replace(",", ".") || "0");
+    const deduction = parseCurrency(form.deduction) ?? 0;
     if (!form.valid_from_date.trim()) { setError("Data de vigência é obrigatória."); return; }
 
     if (isNaN(rangeStart) || rangeStart < 0) { setError("Início da faixa inválido."); return; }
@@ -357,9 +358,9 @@ export default function TabelaIR() {
                 />
                 <Input
                   value={form.range_start}
-                  onChange={(e) => f("range_start", e.target.value)}
+                  onChange={(e) => f("range_start", maskCurrency(e.target.value))}
                   placeholder="0,00"
-                  inputMode="decimal"
+                  inputMode="numeric"
                 />
               </div>
               <div className="space-y-2">
@@ -369,9 +370,9 @@ export default function TabelaIR() {
                 />
                 <Input
                   value={form.range_end}
-                  onChange={(e) => f("range_end", e.target.value)}
+                  onChange={(e) => f("range_end", maskCurrency(e.target.value))}
                   placeholder="Sem limite"
-                  inputMode="decimal"
+                  inputMode="numeric"
                 />
               </div>
             </div>
@@ -397,9 +398,9 @@ export default function TabelaIR() {
                 />
                 <Input
                   value={form.deduction}
-                  onChange={(e) => f("deduction", e.target.value)}
+                  onChange={(e) => f("deduction", maskCurrency(e.target.value))}
                   placeholder="0,00"
-                  inputMode="decimal"
+                  inputMode="numeric"
                 />
               </div>
             </div>
