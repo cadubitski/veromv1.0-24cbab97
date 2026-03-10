@@ -952,8 +952,8 @@ export default function GestaoContratos() {
               </div>
               {viewContract.status === "ativo" && (
                 <div className="flex gap-2 pt-2 border-t border-border/40">
-                  <Button size="sm" variant="outline" onClick={() => { handleChangeStatus(viewContract, "encerrado"); setViewDialogOpen(false); }}>Encerrar contrato</Button>
-                  <Button size="sm" variant="outline" onClick={() => { handleChangeStatus(viewContract, "cancelado"); setViewDialogOpen(false); }}>Cancelar contrato</Button>
+                  <Button size="sm" variant="outline" onClick={() => setStatusChangeTarget({ contract: viewContract, newStatus: "encerrado" })}>Encerrar contrato</Button>
+                  <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => setStatusChangeTarget({ contract: viewContract, newStatus: "cancelado" })}>Cancelar contrato</Button>
                 </div>
               )}
             </div>
