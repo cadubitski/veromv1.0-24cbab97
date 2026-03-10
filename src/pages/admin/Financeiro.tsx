@@ -28,12 +28,12 @@ export default function Financeiro() {
   const [billing, setBilling] = useState<BillingInfo | null>(null);
   const [loadingBilling, setLoadingBilling] = useState(true);
   const [loadingPortal, setLoadingPortal] = useState(false);
+  const [loadingCheckout, setLoadingCheckout] = useState(false);
   const [loadingRefresh, setLoadingRefresh] = useState(false);
   const [error, setError] = useState("");
 
   const fetchBilling = async () => {
     if (!user || !company) return;
-    // Usa o email da empresa (quem assinou), não o email do usuário logado
     const billingEmail = company.email ?? user.email ?? "";
     setLoadingBilling(true);
     setError("");
@@ -41,9 +41,7 @@ export default function Financeiro() {
       const { data, error: fnError } = await supabase.functions.invoke("get-billing-status", {
         body: { customer_email: billingEmail },
       });
-
       if (fnError) throw new Error(fnError.message);
-
       setBilling({
         status: data?.status ?? null,
         customer_email: billingEmail,
@@ -71,17 +69,10 @@ export default function Financeiro() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await supabase.functions.invoke("get-portal-link", {
-        body: {
-          customer_email: billing.customer_email,
-          saas_key: billing.saas_key,
-        },
-        headers: session?.access_token
-          ? { Authorization: `Bearer ${session.access_token}` }
-          : {},
+        body: { customer_email: billing.customer_email, saas_key: billing.saas_key },
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
       });
-
       if (res.error) throw new Error(res.error.message);
-
       const url = res.data?.url;
       if (url) {
         window.open(url, "_blank");
@@ -96,7 +87,38 @@ export default function Financeiro() {
     }
   };
 
+  const openCheckout = async () => {
+    if (!billing) return;
+    setLoadingCheckout(true);
+    setError("");
+    try {
+      const origin = window.location.origin;
+      const res = await supabase.functions.invoke("create-checkout", {
+        body: {
+          email: billing.customer_email,
+          price_id: PRICE_ID,
+          success_url: `${origin}/admin/financeiro?checkout=success`,
+          cancel_url: `${origin}/admin/financeiro`,
+        },
+      });
+      if (res.error) throw new Error(res.error.message);
+      const url = res.data?.url;
+      if (url) {
+        window.open(url, "_blank");
+      } else {
+        setError("Não foi possível abrir o checkout. Tente novamente.");
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Erro desconhecido";
+      setError(`Erro ao abrir o checkout: ${message}`);
+    } finally {
+      setLoadingCheckout(false);
+    }
+  };
+
   const statusInfo = billing?.status ? statusConfig[billing.status] : null;
+  // Assinatura inativa = sem assinatura ou cancelada → mostrar checkout
+  const needsSubscription = !billing?.status || billing.status === "canceled";
 
   return (
     <DashboardLayout>
