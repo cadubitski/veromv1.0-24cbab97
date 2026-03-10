@@ -647,21 +647,25 @@ export default function GestaoContratos() {
           return brackets.filter((b) => (b.valid_from_date ?? "2000-01-01") === latestValidDate);
         };
 
-        const calcIR = (rentValue: number, competence: string): { feeVal: number; taxBase: number; irrfVal: number; ownerNet: number; repasseVal: number } => {
+        const calcIR = (rentValue: number, competence: string): { feeVal: number; taxBase: number; irrfVal: number; ownerNet: number; repasseVal: number; appliedRate: number | null; appliedDeduction: number | null } => {
           const feeVal = rentValue * feeP / 100;
           const taxBase = rentValue - feeVal;
           let irrfVal = 0;
+          let appliedRate: number | null = null;
+          let appliedDeduction: number | null = null;
           if (ownerPersonType === "fisica" && allTaxBrackets && allTaxBrackets.length > 0) {
             const brackets = getBracketsForCompetence(competence, allTaxBrackets as any[]);
             const bracket = brackets.find(
               (b: any) => taxBase >= b.range_start && (b.range_end == null || taxBase <= b.range_end)
             );
             if (bracket) {
+              appliedRate = bracket.rate;
+              appliedDeduction = bracket.deduction;
               irrfVal = Math.max(0, (taxBase * bracket.rate / 100) - bracket.deduction);
             }
           }
           const ownerNet = taxBase - irrfVal;
-          return { feeVal, taxBase, irrfVal, ownerNet, repasseVal: ownerNet };
+          return { feeVal, taxBase, irrfVal, ownerNet, repasseVal: ownerNet, appliedRate, appliedDeduction };
         };
 
         const startDate = parseISO(form.start_date);
@@ -689,6 +693,8 @@ export default function GestaoContratos() {
             irrf_value: ir.irrfVal,
             owner_net_value: ir.ownerNet,
             repasse_value: ir.repasseVal,
+            ir_rate: ir.appliedRate,
+            ir_deduction: ir.appliedDeduction,
             status: "em_aberto",
           });
         }
