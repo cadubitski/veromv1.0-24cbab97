@@ -212,8 +212,6 @@ export default function ContasBancarias() {
     setSaving(true);
     setError(null);
 
-    const initial = parseCurrency(form.initial_balance) ?? 0;
-
     try {
       if (editAccount) {
         const { error: err } = await supabase
@@ -226,7 +224,6 @@ export default function ContasBancarias() {
             account_number: form.account_number,
             account_digit: form.account_digit || null,
             account_name: form.account_name,
-            initial_balance: initial,
             active: form.active,
             external_provider: form.external_provider || null,
             external_account_id: form.external_account_id || null,
@@ -246,8 +243,8 @@ export default function ContasBancarias() {
             account_number: form.account_number,
             account_digit: form.account_digit || null,
             account_name: form.account_name,
-            initial_balance: initial,
-            current_balance: initial,
+            initial_balance: 0,
+            current_balance: 0,
             active: form.active,
             external_provider: form.external_provider || null,
             external_account_id: form.external_account_id || null,
