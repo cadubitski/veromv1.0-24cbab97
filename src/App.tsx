@@ -21,6 +21,7 @@ import EditorModelo from "./pages/documentos/EditorModelo";
 import TabelaIR from "./pages/cadastros/TabelaIR";
 import Dimob from "./pages/relatorios/Dimob";
 import InformeRendimentos from "./pages/relatorios/InformeRendimentos";
+import ContasBancarias from "./pages/financeiro/ContasBancarias";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
