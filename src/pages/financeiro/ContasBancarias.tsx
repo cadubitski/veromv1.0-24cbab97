@@ -536,23 +536,22 @@ export default function ContasBancarias() {
               />
             </div>
 
-            {/* Initial balance */}
-            <div className="space-y-2">
-              <FieldLabel
-                label="Saldo inicial"
-                tooltip="Saldo da conta no momento do cadastro. O saldo atual será iniciado com este valor."
-              />
-              <Input
-                value={form.initial_balance}
-                onChange={(e) => f("initial_balance", maskCurrency(e.target.value))}
-                placeholder="0,00"
-                inputMode="numeric"
-                disabled={!!editAccount}
-              />
-              {editAccount && (
-                <p className="text-xs text-muted-foreground">O saldo inicial não pode ser alterado após o cadastro.</p>
-              )}
-            </div>
+            {/* Current balance (read-only) */}
+            {editAccount && (
+              <div className="space-y-2">
+                <FieldLabel
+                  label="Saldo atual"
+                  tooltip="Saldo atual da conta. Atualizado automaticamente pelas movimentações bancárias."
+                />
+                <Input
+                  value={fmt(editAccount.current_balance)}
+                  readOnly
+                  disabled
+                  className="bg-muted/50 font-mono"
+                />
+                <p className="text-xs text-muted-foreground">O saldo é atualizado automaticamente pelas movimentações.</p>
+              </div>
+            )}
 
             {/* Status */}
             <div className="space-y-2">
