@@ -1456,22 +1456,6 @@ export default function GestaoContratos() {
                         <TableCell className="font-mono text-sm font-semibold text-right whitespace-nowrap">
                           R$ {formatMoney(ownerNet)}
                         </TableCell>
-
-                        {/* Ação */}
-                        <TableCell className="text-right w-px whitespace-nowrap">
-                          {!contractReadOnly && inst.status !== "pago" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs gap-1"
-                              onClick={() => markAsPaid(inst)}
-                              disabled={markingPaid === inst.id}
-                            >
-                              {markingPaid === inst.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                              Pago
-                            </Button>
-                          )}
-                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -1481,6 +1465,65 @@ export default function GestaoContratos() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Generate Contas a Receber Confirmation Dialog */}
+      <AlertDialog open={generateCROpen} onOpenChange={setGenerateCROpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-primary" />
+              Gerar Contas a Receber
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-foreground">
+                <p>Você está prestes a gerar os títulos de Contas a Receber para todas as parcelas pendentes deste contrato.</p>
+                <div className="rounded-lg bg-muted/50 border border-border/50 p-3 space-y-1">
+                  <p className="font-medium text-foreground text-xs uppercase tracking-wide mb-2">Após gerar os títulos:</p>
+                  <p className="flex items-center gap-2"><AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" /> As parcelas ficarão travadas para edição</p>
+                  <p className="flex items-center gap-2"><AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" /> O controle de pagamento será feito pelo módulo financeiro</p>
+                </div>
+                <p className="text-muted-foreground">Parcelas pendentes: <strong className="text-foreground">{installments.filter((i) => i.financial_status === "pending").length}</strong></p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleGenerateCR} disabled={generatingCR}>
+              {generatingCR ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirmar geração"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reopen Installments Confirmation Dialog */}
+      <AlertDialog open={reopenInstOpen} onOpenChange={setReopenInstOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RefreshCcw className="h-5 w-5 text-primary" />
+              Reabrir parcelas pendentes
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-foreground">
+                <p>Esta operação irá remover os títulos de contas a receber das parcelas que ainda não foram pagas.</p>
+                <div className="rounded-lg bg-muted/50 border border-border/50 p-3 space-y-1">
+                  <p className="flex items-center gap-2"><AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" /> Parcelas com CR gerado serão reabertas para edição</p>
+                  <p className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" /> Parcelas já pagas serão preservadas</p>
+                </div>
+                <p className="text-muted-foreground">Parcelas a reabrir: <strong className="text-foreground">{installments.filter((i) => i.financial_status === "generated").length}</strong></p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleReopenInst} disabled={reopeningInst} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {reopeningInst ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirmar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+
 
       {/* Delete Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
