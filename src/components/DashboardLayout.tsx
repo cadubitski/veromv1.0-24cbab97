@@ -16,6 +16,11 @@ export interface NavChild {
   permKey?: string;
 }
 
+export interface NavSubGroup {
+  groupLabel: string;
+  children: NavChild[];
+}
+
 export interface NavItem {
   label: string;
   icon: React.ElementType;
@@ -23,12 +28,10 @@ export interface NavItem {
   /** Chave de permissão para item direto */
   permKey?: string;
   children?: NavChild[];
+  subGroups?: NavSubGroup[];
 }
 
 // ─── Mapa completo do menu ────────────────────────────────────────────────────
-// permKey no grupo: exibe o grupo se o usuário tiver qualquer filho liberado
-// permKey no filho: controla visibilidade individual
-
 export const userNav: NavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard", permKey: "dashboard" },
   {
@@ -61,17 +64,25 @@ export const userNav: NavItem[] = [
   {
     label: "Relatórios",
     icon: BarChart2,
-    children: [
-      { label: "── Contratos ──",                  href: "/relatorios/contratos",                    permKey: "relatorios.repasse" },
-      { label: "Repasse",                           href: "/relatorios/repasse",                      permKey: "relatorios.repasse" },
-      { label: "DIMOB Anual",                       href: "/relatorios/dimob",                        permKey: "relatorios.dimob" },
-      { label: "Informe de Rendimentos",            href: "/relatorios/informe-rendimentos",          permKey: "relatorios.informe-rendimentos" },
-      { label: "── Financeiro ──",                  href: "/relatorios/financeiro",                   permKey: "relatorios.repasse" },
-      { label: "Movimentação Bancária",             href: "/relatorios/financeiro/movimentacao",      permKey: "relatorios.financeiro.movimentacao" },
-      { label: "Contas a Receber",                  href: "/relatorios/financeiro/contas-receber",    permKey: "relatorios.financeiro.contas-receber" },
-      { label: "Baixas de C. a Receber",            href: "/relatorios/financeiro/baixas-receber",   permKey: "relatorios.financeiro.baixas-receber" },
-      { label: "Contas a Pagar",                    href: "/relatorios/financeiro/contas-pagar",      permKey: "relatorios.financeiro.contas-pagar" },
-      { label: "Baixas de C. a Pagar",              href: "/relatorios/financeiro/baixas-pagar",     permKey: "relatorios.financeiro.baixas-pagar" },
+    subGroups: [
+      {
+        groupLabel: "Contratos",
+        children: [
+          { label: "Repasse",                href: "/relatorios/repasse",             permKey: "relatorios.repasse" },
+          { label: "DIMOB Anual",            href: "/relatorios/dimob",               permKey: "relatorios.dimob" },
+          { label: "Informe de Rendimentos", href: "/relatorios/informe-rendimentos", permKey: "relatorios.informe-rendimentos" },
+        ],
+      },
+      {
+        groupLabel: "Financeiro",
+        children: [
+          { label: "Movimentação Bancária",  href: "/relatorios/financeiro/movimentacao",   permKey: "relatorios.financeiro.movimentacao" },
+          { label: "Contas a Receber",       href: "/relatorios/financeiro/contas-receber", permKey: "relatorios.financeiro.contas-receber" },
+          { label: "Baixas C. a Receber",    href: "/relatorios/financeiro/baixas-receber", permKey: "relatorios.financeiro.baixas-receber" },
+          { label: "Contas a Pagar",         href: "/relatorios/financeiro/contas-pagar",   permKey: "relatorios.financeiro.contas-pagar" },
+          { label: "Baixas C. a Pagar",      href: "/relatorios/financeiro/baixas-pagar",   permKey: "relatorios.financeiro.baixas-pagar" },
+        ],
+      },
     ],
   },
   {
@@ -96,19 +107,55 @@ export const adminNav: NavItem[] = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function allChildren(item: NavItem): NavChild[] {
+  if (item.children) return item.children;
+  if (item.subGroups) return item.subGroups.flatMap((g) => g.children);
+  return [];
+}
+
 /** Verifica se um item (ou qualquer filho) está liberado para o conjunto de permissões */
 function isItemVisible(item: NavItem, permissions: Set<string>): boolean {
   if (permissions.has("*")) return true; // admin
   if (item.href) {
     return item.permKey ? permissions.has(item.permKey) : false;
   }
-  // grupo com filhos: visível se ao menos 1 filho estiver liberado
-  return (item.children ?? []).some((c) => !c.permKey || permissions.has(c.permKey));
+  return allChildren(item).some((c) => !c.permKey || permissions.has(c.permKey));
 }
 
 function visibleChildren(item: NavItem, permissions: Set<string>): NavChild[] {
-  if (permissions.has("*")) return item.children ?? [];
-  return (item.children ?? []).filter((c) => !c.permKey || permissions.has(c.permKey));
+  if (permissions.has("*")) return allChildren(item);
+  return allChildren(item).filter((c) => !c.permKey || permissions.has(c.permKey));
+}
+
+function visibleSubGroups(item: NavItem, permissions: Set<string>): NavSubGroup[] {
+  if (!item.subGroups) return [];
+  const isAdmin = permissions.has("*");
+  return item.subGroups
+    .map((g) => ({
+      ...g,
+      children: isAdmin ? g.children : g.children.filter((c) => !c.permKey || permissions.has(c.permKey)),
+    }))
+    .filter((g) => g.children.length > 0);
+}
+
+// ─── NavLink inside sidebar ──────────────────────────────────────────────────
+function SidebarLink({ child, onNavigate }: { child: NavChild; onNavigate?: () => void }) {
+  const location = useLocation();
+  const active = location.pathname === child.href || location.pathname.startsWith(child.href + "/");
+  return (
+    <Link
+      to={child.href}
+      onClick={onNavigate}
+      className={cn(
+        "block rounded-md px-3 py-2 text-sm transition-all duration-150",
+        active
+          ? "text-primary font-medium"
+          : "text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-accent))] hover:text-[hsl(var(--sidebar-accent-foreground))]"
+      )}
+    >
+      {child.label}
+    </Link>
+  );
 }
 
 // ─── NavItem Component ────────────────────────────────────────────────────────
@@ -125,10 +172,10 @@ function NavItemComp({
   onNavigate?: () => void;
 }) {
   const location = useLocation();
-  const children = visibleChildren(item, permissions);
+  const flatChildren = visibleChildren(item, permissions);
 
   const [open, setOpen] = useState(() =>
-    children.some((c) => location.pathname.startsWith(c.href)) ?? false
+    flatChildren.some((c) => location.pathname.startsWith(c.href)) ?? false
   );
 
   if (item.href) {
@@ -150,6 +197,9 @@ function NavItemComp({
     );
   }
 
+  const hasSubGroups = !!item.subGroups && item.subGroups.length > 0;
+  const subGroups = visibleSubGroups(item, permissions);
+
   return (
     <div>
       <button
@@ -166,23 +216,43 @@ function NavItemComp({
       </button>
       {open && !collapsed && (
         <div className="ml-7 mt-1 space-y-0.5 border-l border-[hsl(var(--sidebar-border))] pl-3">
-          {children.map((child) => {
-            const active = location.pathname === child.href || location.pathname.startsWith(child.href + "/");
-            return (
-              <Link
-                key={child.href}
-                to={child.href}
-                onClick={onNavigate}
-                className={cn(
-                  "block rounded-md px-3 py-2 text-sm transition-all duration-150",
-                  active
-                    ? "text-primary font-medium"
-                    : "text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-accent))] hover:text-[hsl(var(--sidebar-accent-foreground))]"
-                )}
-              >
-                {child.label}
-              </Link>
-            );
+          {hasSubGroups ? (
+            subGroups.map((group) => (
+              <SubGroupComp key={group.groupLabel} group={group} onNavigate={onNavigate} />
+            ))
+          ) : (
+            flatChildren.map((child) => (
+              <SidebarLink key={child.href} child={child} onNavigate={onNavigate} />
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── SubGroup Component ───────────────────────────────────────────────────────
+
+function SubGroupComp({ group, onNavigate }: { group: NavSubGroup; onNavigate?: () => void }) {
+  const location = useLocation();
+  const [open, setOpen] = useState(() =>
+    group.children.some((c) => location.pathname.startsWith(c.href))
+  );
+
+  return (
+    <div className="mt-1">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-[hsl(var(--sidebar-foreground)/0.5)] hover:text-[hsl(var(--sidebar-accent-foreground))] transition-colors"
+      >
+        <span className="flex-1 text-left">{group.groupLabel}</span>
+        {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+      </button>
+      {open && (
+        <div className="mt-0.5 space-y-0.5">
+          {group.children.map((child) => (
+            <SidebarLink key={child.href} child={child} onNavigate={onNavigate} />
+          ))}
           })}
         </div>
       )}
