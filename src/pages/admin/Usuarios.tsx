@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Loader2, UserPlus, Pencil, Trash2, Eye, EyeOff,
-  Search, Shield, User as UserIcon
+  Search, Shield, User as UserIcon, Lock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,10 +17,16 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardLayout from "@/components/DashboardLayout";
+import { userNav } from "@/components/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface UserRecord {
   user_id: string;
@@ -41,8 +47,33 @@ const emptyForm = {
   role: "user" as "admin" | "user",
 };
 
+// ─── Estrutura de permissões para o painel ───────────────────────────────────
+// Gerado dinamicamente a partir do userNav do DashboardLayout
+
+interface PermGroup {
+  label: string;
+  items: { label: string; key: string }[];
+}
+
+const PERM_GROUPS: PermGroup[] = userNav
+  .filter((n) => n.permKey || (n.children && n.children.some((c) => c.permKey)))
+  .map((n) => {
+    if (n.href && n.permKey) {
+      return { label: n.label, items: [{ label: n.label, key: n.permKey! }] };
+    }
+    return {
+      label: n.label,
+      items: (n.children ?? [])
+        .filter((c) => c.permKey)
+        .map((c) => ({ label: c.label, key: c.permKey! })),
+    };
+  })
+  .filter((g) => g.items.length > 0);
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function Usuarios() {
-  const { company } = useAuth();
+  const { company, refreshPermissions } = useAuth();
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -54,7 +85,12 @@ export default function Usuarios() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState<"dados" | "permissoes">("dados");
 
+  // Permissões selecionadas no form (set de permission_keys)
+  const [selectedPerms, setSelectedPerms] = useState<Set<string>>(new Set());
+
+  // ── Data loading ────────────────────────────────────────────────────────────
   const fetchUsers = async () => {
     if (!company) return;
     setLoading(true);
@@ -82,14 +118,26 @@ export default function Usuarios() {
 
   useEffect(() => { fetchUsers(); }, [company]);
 
+  // ── Carregar permissões ao abrir edição ─────────────────────────────────────
+  const loadUserPerms = async (userId: string) => {
+    const { data } = await supabase
+      .from("user_permissions")
+      .select("permission_key")
+      .eq("user_id", userId)
+      .eq("company_id", company!.id);
+    setSelectedPerms(new Set((data ?? []).map((r: { permission_key: string }) => r.permission_key)));
+  };
+
   const openCreate = () => {
     setEditUser(null);
     setForm(emptyForm);
+    setSelectedPerms(new Set());
     setError("");
+    setActiveTab("dados");
     setDialogOpen(true);
   };
 
-  const openEdit = (user: UserRecord) => {
+  const openEdit = async (user: UserRecord) => {
     setEditUser(user);
     setForm({
       full_name: user.full_name,
@@ -99,17 +147,71 @@ export default function Usuarios() {
       password: "",
       role: user.role,
     });
+    setSelectedPerms(new Set());
     setError("");
+    setActiveTab("dados");
     setDialogOpen(true);
+    if (user.role !== "admin") {
+      await loadUserPerms(user.user_id);
+    }
   };
 
+  // ── Toggle permissão individual ─────────────────────────────────────────────
+  const togglePerm = (key: string) => {
+    setSelectedPerms((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  // ── Toggle grupo inteiro ────────────────────────────────────────────────────
+  const toggleGroup = (group: PermGroup) => {
+    const allKeys = group.items.map((i) => i.key);
+    const allSelected = allKeys.every((k) => selectedPerms.has(k));
+    setSelectedPerms((prev) => {
+      const next = new Set(prev);
+      if (allSelected) allKeys.forEach((k) => next.delete(k));
+      else allKeys.forEach((k) => next.add(k));
+      return next;
+    });
+  };
+
+  // ── Salvar permissões ───────────────────────────────────────────────────────
+  const savePermissions = async (userId: string) => {
+    if (!company) return;
+
+    // Deletar todas as permissões existentes do usuário
+    await supabase
+      .from("user_permissions")
+      .delete()
+      .eq("user_id", userId)
+      .eq("company_id", company.id);
+
+    // Inserir as selecionadas (somente para usuários não-admin)
+    const permsToInsert = Array.from(selectedPerms).map((key) => ({
+      user_id: userId,
+      company_id: company.id,
+      permission_key: key,
+    }));
+
+    if (permsToInsert.length > 0) {
+      const { error: pErr } = await supabase
+        .from("user_permissions")
+        .insert(permsToInsert);
+      if (pErr) throw new Error(pErr.message);
+    }
+  };
+
+  // ── handleSave ──────────────────────────────────────────────────────────────
   const handleSave = async () => {
     setError("");
     setSaving(true);
 
     try {
       if (editUser) {
-        // Update profile
+        // Atualiza perfil
         const { error: pErr } = await supabase
           .from("profiles")
           .update({
@@ -121,7 +223,7 @@ export default function Usuarios() {
           .eq("user_id", editUser.user_id);
         if (pErr) throw new Error(pErr.message);
 
-        // Update role
+        // Atualiza role
         const { error: rErr } = await supabase
           .from("user_roles")
           .update({ role: form.role })
@@ -129,7 +231,19 @@ export default function Usuarios() {
           .eq("company_id", company!.id);
         if (rErr) throw new Error(rErr.message);
 
-        // Update password via edge function if provided
+        // Salva permissões (apenas para não-admin)
+        if (form.role !== "admin") {
+          await savePermissions(editUser.user_id);
+        } else {
+          // Admin: apaga permissões específicas (não precisa, tem acesso total via role)
+          await supabase
+            .from("user_permissions")
+            .delete()
+            .eq("user_id", editUser.user_id)
+            .eq("company_id", company!.id);
+        }
+
+        // Senha
         if (form.password) {
           const { error: fnErr } = await supabase.functions.invoke("update-user-password", {
             body: { user_id: editUser.user_id, password: form.password },
@@ -137,10 +251,12 @@ export default function Usuarios() {
           if (fnErr) throw new Error(fnErr.message);
         }
 
+        toast.success("Usuário atualizado com sucesso.");
         await fetchUsers();
+        await refreshPermissions();
         setDialogOpen(false);
       } else {
-        // Create new user
+        // Criação
         if (!form.password || form.password.length < 6) {
           setError("A senha deve ter pelo menos 6 caracteres.");
           setSaving(false);
@@ -157,7 +273,7 @@ export default function Usuarios() {
         });
         if (fnErr || data?.error) throw new Error(data?.error || fnErr?.message);
 
-        // Update role if admin
+        // Role admin
         if (form.role === "admin" && data?.userId) {
           await supabase
             .from("user_roles")
@@ -166,23 +282,22 @@ export default function Usuarios() {
             .eq("company_id", company!.id);
         }
 
-        // Update address / birth_date
-        if (form.address || form.birth_date) {
-          await supabase
-            .from("profiles")
-            .update({
-              address: form.address || null,
-              birth_date: form.birth_date || null,
-              must_change_password: true,
-            })
-            .eq("user_id", data.userId);
-        } else {
-          await supabase
-            .from("profiles")
-            .update({ must_change_password: true })
-            .eq("user_id", data.userId);
+        // Dados extras do perfil
+        await supabase
+          .from("profiles")
+          .update({
+            address: form.address || null,
+            birth_date: form.birth_date || null,
+            must_change_password: true,
+          })
+          .eq("user_id", data.userId);
+
+        // Permissões para usuário não-admin
+        if (form.role !== "admin" && data?.userId) {
+          await savePermissions(data.userId);
         }
 
+        toast.success("Usuário criado com sucesso.");
         await fetchUsers();
         setDialogOpen(false);
       }
@@ -208,6 +323,9 @@ export default function Usuarios() {
       u.email.toLowerCase().includes(search.toLowerCase())
   );
 
+  const isAdmin = form.role === "admin";
+
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -291,86 +409,197 @@ export default function Usuarios() {
         </Card>
       </div>
 
-      {/* Create/Edit Dialog */}
+      {/* ── Create/Edit Dialog ─────────────────────────────────────────────── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md flex flex-col max-h-[90vh]">
+        <DialogContent className="sm:max-w-lg flex flex-col max-h-[90vh]">
           <DialogHeader className="shrink-0">
             <DialogTitle>{editUser ? "Editar usuário" : "Novo usuário"}</DialogTitle>
             <DialogDescription>
               {editUser
-                ? "Altere os dados do usuário abaixo."
-                : "Preencha os dados para criar um novo usuário. A senha deverá ser trocada no próximo acesso."}
+                ? "Altere os dados e as permissões de acesso do usuário."
+                : "Preencha os dados e defina as permissões de acesso. A senha deverá ser trocada no próximo acesso."}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2 overflow-y-auto flex-1 pr-1">
-            <div className="space-y-2">
-              <Label>Nome completo *</Label>
-              <Input
-                value={form.full_name}
-                onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
-                placeholder="João da Silva"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>E-mail *</Label>
-              <Input
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                placeholder="joao@empresa.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Endereço</Label>
-              <Input
-                value={form.address}
-                onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-                placeholder="Rua Exemplo, 123"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Data de nascimento</Label>
-              <Input
-                type="date"
-                value={form.birth_date}
-                onChange={(e) => setForm((f) => ({ ...f, birth_date: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Perfil (Role)</Label>
-              <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v as "admin" | "user" }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="user">Usuário</SelectItem>
-                  <SelectItem value="admin">Administrador</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>{editUser ? "Nova senha (deixe em branco para não alterar)" : "Senha *"}</Label>
-              <div className="relative">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  value={form.password}
-                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                  placeholder={editUser ? "••••••••" : "Mínimo 6 caracteres"}
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col min-h-0">
+            <TabsList className="shrink-0 w-full">
+              <TabsTrigger value="dados" className="flex-1">Dados</TabsTrigger>
+              <TabsTrigger value="permissoes" className="flex-1 gap-1.5">
+                <Lock className="h-3.5 w-3.5" /> Permissões
+              </TabsTrigger>
+            </TabsList>
+
+            {/* ── Aba Dados ─────────────────────────────────────────────────── */}
+            <TabsContent value="dados" className="flex-1 overflow-y-auto pr-1">
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label>Nome completo *</Label>
+                  <Input
+                    value={form.full_name}
+                    onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
+                    placeholder="João da Silva"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>E-mail *</Label>
+                  <Input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                    placeholder="joao@empresa.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Endereço</Label>
+                  <Input
+                    value={form.address}
+                    onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                    placeholder="Rua Exemplo, 123"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Data de nascimento</Label>
+                  <Input
+                    type="date"
+                    value={form.birth_date}
+                    onChange={(e) => setForm((f) => ({ ...f, birth_date: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Perfil (Role)</Label>
+                  <Select
+                    value={form.role}
+                    onValueChange={(v) => {
+                      setForm((f) => ({ ...f, role: v as "admin" | "user" }));
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">Usuário</SelectItem>
+                      <SelectItem value="admin">Administrador</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {form.role === "admin" && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Shield className="h-3 w-3 text-primary" />
+                      Administradores têm acesso a todos os menus automaticamente.
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>{editUser ? "Nova senha (deixe em branco para não alterar)" : "Senha *"}</Label>
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      value={form.password}
+                      onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                      placeholder={editUser ? "••••••••" : "Mínimo 6 caracteres"}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-            {error && (
-              <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
-            )}
-          </div>
+            </TabsContent>
+
+            {/* ── Aba Permissões ────────────────────────────────────────────── */}
+            <TabsContent value="permissoes" className="flex-1 overflow-y-auto pr-1">
+              {isAdmin ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
+                  <Shield className="h-10 w-10 text-primary opacity-60" />
+                  <p className="text-sm font-medium">Administrador — acesso total</p>
+                  <p className="text-xs text-muted-foreground max-w-xs">
+                    Administradores têm acesso irrestrito a todos os módulos e menus do sistema. As permissões granulares se aplicam apenas ao perfil "Usuário".
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4 py-2">
+                  <p className="text-xs text-muted-foreground">
+                    Selecione quais menus e submenus este usuário poderá acessar.
+                  </p>
+                  {/* Selecionar/desselecionar tudo */}
+                  <div className="flex items-center gap-2 pb-1 border-b border-border/40">
+                    <Checkbox
+                      id="perm-all"
+                      checked={PERM_GROUPS.flatMap((g) => g.items).every((i) => selectedPerms.has(i.key))}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedPerms(new Set(PERM_GROUPS.flatMap((g) => g.items.map((i) => i.key))));
+                        } else {
+                          setSelectedPerms(new Set());
+                        }
+                      }}
+                    />
+                    <label htmlFor="perm-all" className="text-sm font-semibold cursor-pointer select-none">
+                      Selecionar todos
+                    </label>
+                  </div>
+
+                  {PERM_GROUPS.map((group) => {
+                    const groupKeys = group.items.map((i) => i.key);
+                    const allChecked = groupKeys.every((k) => selectedPerms.has(k));
+                    const someChecked = groupKeys.some((k) => selectedPerms.has(k));
+
+                    return (
+                      <div key={group.label} className="space-y-2">
+                        {/* Header do grupo */}
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id={`group-${group.label}`}
+                            checked={allChecked}
+                            // indeterminate via data attr
+                            data-state={someChecked && !allChecked ? "indeterminate" : undefined}
+                            onCheckedChange={() => toggleGroup(group)}
+                            className={someChecked && !allChecked ? "opacity-60" : ""}
+                          />
+                          <label
+                            htmlFor={`group-${group.label}`}
+                            className="text-sm font-semibold text-foreground cursor-pointer select-none"
+                          >
+                            {group.label}
+                          </label>
+                        </div>
+
+                        {/* Itens do grupo */}
+                        {group.items.length > 1 && (
+                          <div className="ml-6 space-y-1.5 border-l border-border/40 pl-4">
+                            {group.items.map((item) => (
+                              <div key={item.key} className="flex items-center gap-2">
+                                <Checkbox
+                                  id={`perm-${item.key}`}
+                                  checked={selectedPerms.has(item.key)}
+                                  onCheckedChange={() => togglePerm(item.key)}
+                                />
+                                <label
+                                  htmlFor={`perm-${item.key}`}
+                                  className="text-sm text-muted-foreground cursor-pointer select-none"
+                                >
+                                  {item.label}
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+
+          {error && (
+            <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive shrink-0">{error}</div>
+          )}
+
           <DialogFooter className="shrink-0">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleSave} disabled={saving}>

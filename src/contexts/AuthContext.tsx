@@ -31,10 +31,14 @@ interface AuthContextType {
   billingStatus: BillingStatus;
   billingLoading: boolean;
   loading: boolean;
+  /** Conjunto de permission_keys do usuário logado. Admins recebem Set("*") = tudo liberado */
+  permissions: Set<string>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   refreshBilling: () => Promise<void>;
+  /** Recarrega permissões do usuário (chamado após salvar no painel de usuários) */
+  refreshPermissions: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,6 +52,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [billingStatus, setBillingStatus] = useState<BillingStatus>(null);
   const [billingLoading, setBillingLoading] = useState(false);
+  const [permissions, setPermissions] = useState<Set<string>>(new Set());
+
+  // Referência interna para userId e role (para o refreshPermissions sem closure stale)
+  const userIdRef = React.useRef<string | null>(null);
+  const roleRef = React.useRef<"admin" | "user" | null>(null);
+
+  const fetchPermissions = async (userId: string, userRole: "admin" | "user") => {
+    if (userRole === "admin") {
+      // Admin tem acesso a tudo
+      setPermissions(new Set(["*"]));
+      return;
+    }
+    const { data } = await supabase
+      .from("user_permissions")
+      .select("permission_key")
+      .eq("user_id", userId);
+    setPermissions(new Set((data ?? []).map((r: { permission_key: string }) => r.permission_key)));
+  };
 
   const fetchUserData = async (userId: string) => {
     const [profileRes, roleRes] = await Promise.all([
@@ -56,6 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     ]);
 
     let companyEmail: string | null = null;
+    const userRole = (roleRes.data?.role ?? "user") as "admin" | "user";
 
     if (profileRes.data) {
       setProfile(profileRes.data as Profile);
@@ -66,20 +89,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .maybeSingle();
       if (companyRes.data) {
         setCompany(companyRes.data as Company);
-        // Usa o email da empresa (do admin que registrou e pagou) para checar billing
         companyEmail = companyRes.data.email ?? null;
       }
     }
 
     if (roleRes.data) {
-      setRole(roleRes.data.role as "admin" | "user");
+      setRole(userRole);
     }
+
+    userIdRef.current = userId;
+    roleRef.current = userRole;
+
+    await fetchPermissions(userId, userRole);
 
     return companyEmail;
   };
 
   const fetchBillingStatus = async (email: string) => {
-    // Não usa billingLoading para não causar re-render/spinner em toda navegação
     try {
       const { data, error } = await supabase.functions.invoke("get-billing-status", {
         body: { customer_email: email },
@@ -97,12 +123,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshBilling = async () => {
-    // Sempre usa o email da empresa (quem pagou a assinatura), não o email do usuário logado
     if (company?.email) await fetchBillingStatus(company.email);
   };
 
+  const refreshPermissions = async () => {
+    if (userIdRef.current && roleRef.current) {
+      await fetchPermissions(userIdRef.current, roleRef.current);
+    }
+  };
+
   useEffect(() => {
-    // Carrega a sessão inicial sem depender do onAuthStateChange
     supabase.auth.getSession().then(({ data: { session: sess } }) => {
       setSession(sess);
       setUser(sess?.user ?? null);
@@ -116,10 +146,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    // Só reage a eventos relevantes: login e logout
-    // TOKEN_REFRESHED (disparado ao voltar à aba) é ignorado intencionalmente
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, sess) => {
-      if (event === "TOKEN_REFRESHED") return; // evita reload ao voltar à aba
+      if (event === "TOKEN_REFRESHED") return;
 
       setSession(sess);
       setUser(sess?.user ?? null);
@@ -135,6 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setCompany(null);
         setRole(null);
         setBillingStatus(null);
+        setPermissions(new Set());
         setLoading(false);
       }
     });
@@ -156,7 +185,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider value={{
       session, user, profile, company, role,
       billingStatus, billingLoading,
-      loading, signIn, signOut, refreshProfile, refreshBilling,
+      loading, permissions,
+      signIn, signOut, refreshProfile, refreshBilling, refreshPermissions,
     }}>
       {children}
     </AuthContext.Provider>
