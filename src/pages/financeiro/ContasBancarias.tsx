@@ -16,10 +16,12 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Loader2, Plus, Search, Eye, Pencil, Trash2, ChevronUp, ChevronDown, FileDown } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, Plus, Search, Eye, Pencil, Trash2, ChevronUp, ChevronDown, FileDown, List } from "lucide-react";
 import { StatusDot, ActionGear } from "@/components/TableActions";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import BankAccountStatement from "@/components/BankAccountStatement";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
