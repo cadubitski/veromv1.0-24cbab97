@@ -84,11 +84,10 @@ export default function Repasse() {
         tax_base_value, ir_rate, ir_deduction, irrf_value, owner_net_value, repasse_value,
         status, paid_at,
         rental_contracts(
-          tenant_id, tenants(full_name),
+          code, tenant_id, tenants(full_name),
           property_id, properties(code, address, clients(full_name, person_type))
         )
-      `)
-      .order("due_date");
+      `);
 
     const mapped: InstRow[] = ((data ?? []) as any[]).map((r) => {
       const feeP = r.management_fee_percent ?? 0;
@@ -98,6 +97,7 @@ export default function Repasse() {
       const ownerNet = r.owner_net_value ?? r.repasse_value ?? (taxBase - irrfV);
       return {
         id: r.id,
+        contract_code: r.rental_contracts?.code ?? "—",
         competence: r.competence,
         due_date: r.due_date,
         value: r.value,
@@ -118,6 +118,16 @@ export default function Repasse() {
         owner_person_type: r.rental_contracts?.properties?.clients?.person_type ?? "fisica",
       };
     });
+
+    // Sort: Imóvel → Locador → Locatário → Competência → Vencimento
+    mapped.sort((a, b) => {
+      if (a.property_code !== b.property_code) return a.property_code.localeCompare(b.property_code);
+      if (a.owner_name !== b.owner_name) return a.owner_name.localeCompare(b.owner_name);
+      if (a.tenant_name !== b.tenant_name) return a.tenant_name.localeCompare(b.tenant_name);
+      if (a.competence !== b.competence) return a.competence.localeCompare(b.competence);
+      return a.due_date.localeCompare(b.due_date);
+    });
+
     setRows(mapped);
     setLoading(false);
   };
@@ -125,13 +135,14 @@ export default function Repasse() {
   useEffect(() => { load(); }, [company?.id]);
 
   const filtered = useMemo(() => {
-    return rows.filter((r) => {
+    const result = rows.filter((r) => {
       const rs = resolveStatus(r);
       const q = search.toLowerCase();
       const matchQ =
         r.tenant_name.toLowerCase().includes(q) ||
         r.property_code.toLowerCase().includes(q) ||
         r.owner_name.toLowerCase().includes(q) ||
+        r.contract_code.toLowerCase().includes(q) ||
         r.competence.includes(q) ||
         (r.property_address ?? "").toLowerCase().includes(q);
       const matchStatus = statusFilter === "todos" || rs === statusFilter;
@@ -139,6 +150,15 @@ export default function Repasse() {
       const matchOwnerType = ownerTypeFilter === "todos" || r.owner_person_type === ownerTypeFilter;
       return matchQ && matchStatus && matchComp && matchOwnerType;
     });
+    // Maintain sort order after filter
+    result.sort((a, b) => {
+      if (a.property_code !== b.property_code) return a.property_code.localeCompare(b.property_code);
+      if (a.owner_name !== b.owner_name) return a.owner_name.localeCompare(b.owner_name);
+      if (a.tenant_name !== b.tenant_name) return a.tenant_name.localeCompare(b.tenant_name);
+      if (a.competence !== b.competence) return a.competence.localeCompare(b.competence);
+      return a.due_date.localeCompare(b.due_date);
+    });
+    return result;
   }, [rows, search, statusFilter, competenceFilter, ownerTypeFilter]);
 
   const totals = useMemo(() => ({
