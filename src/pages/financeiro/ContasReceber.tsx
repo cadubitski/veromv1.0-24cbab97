@@ -120,6 +120,9 @@ export default function ContasReceber() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [visibleCols, setVisibleCols] = useState<Set<string>>(
+    new Set(ALL_COLUMNS.filter((c) => c.defaultVisible !== false).map((c) => c.key))
+  );
 
   // Tenants & bank accounts
   const [tenants, setTenants] = useState<Tenant[]>([]);
