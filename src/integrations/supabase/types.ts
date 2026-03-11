@@ -755,11 +755,13 @@ export type Database = {
       }
       rental_installments: {
         Row: {
+          accounts_receivable_id: string | null
           company_id: string
           competence: string
           contract_id: string
           created_at: string
           due_date: string
+          financial_status: string
           id: string
           ir_deduction: number | null
           ir_rate: number | null
@@ -775,11 +777,13 @@ export type Database = {
           value: number
         }
         Insert: {
+          accounts_receivable_id?: string | null
           company_id: string
           competence: string
           contract_id: string
           created_at?: string
           due_date: string
+          financial_status?: string
           id?: string
           ir_deduction?: number | null
           ir_rate?: number | null
@@ -795,11 +799,13 @@ export type Database = {
           value: number
         }
         Update: {
+          accounts_receivable_id?: string | null
           company_id?: string
           competence?: string
           contract_id?: string
           created_at?: string
           due_date?: string
+          financial_status?: string
           id?: string
           ir_deduction?: number | null
           ir_rate?: number | null
