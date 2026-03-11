@@ -606,6 +606,8 @@ export default function GestaoContratos() {
           .eq("status", "ativo");
         if ((taken ?? 0) > 0) { setFormError("Este imóvel já possui um contrato ativo."); setSaving(false); return; }
 
+        const feeValContract = rentVal * feeP / 100;
+        const repasseValContract = rentVal - feeValContract;
         const { data, error: err } = await supabase.from("rental_contracts").insert({
           company_id: company.id,
           code: form.code.trim() || null,
@@ -616,6 +618,8 @@ export default function GestaoContratos() {
           due_day: dueDay,
           duration_months: durationMonths,
           management_fee_percent: feeP,
+          management_fee_value: feeValContract,
+          repasse_value: repasseValContract,
           status: "ativo",
         }).select("id").single();
         if (err) throw err;
