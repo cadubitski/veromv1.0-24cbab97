@@ -189,6 +189,7 @@ export type Database = {
           company_id: string
           created_at: string
           description: string
+          document_number: string
           id: string
           origin_id: string | null
           origin_type: string
@@ -202,6 +203,7 @@ export type Database = {
           company_id: string
           created_at?: string
           description: string
+          document_number: string
           id?: string
           origin_id?: string | null
           origin_type?: string
@@ -215,6 +217,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           description?: string
+          document_number?: string
           id?: string
           origin_id?: string | null
           origin_type?: string
