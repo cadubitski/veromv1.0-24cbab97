@@ -195,7 +195,7 @@ export default function BankAccountStatement({ bankAccountId, onBalanceChanged }
                   <TableCell className={`text-right font-mono text-sm font-semibold ${t.type === "credit" ? "text-emerald-500" : "text-destructive"}`}>
                     {t.type === "credit" ? "+" : "-"}{fmt(t.amount)}
                   </TableCell>
-                  <TableCell className="w-px">
+                   <TableCell className="w-px">
                     <ActionGear
                       legendKeys={[]}
                       actions={[
@@ -204,6 +204,10 @@ export default function BankAccountStatement({ bankAccountId, onBalanceChanged }
                           icon: <Trash2 className="h-3.5 w-3.5" />,
                           onClick: () => setDeleteTarget(t),
                           variant: "destructive" as const,
+                          disabled: t.origin_type !== "manual",
+                          title: t.origin_type !== "manual"
+                            ? "Exclusão não permitida: movimentação originada de baixa de título financeiro."
+                            : undefined,
                         },
                       ]}
                     />
