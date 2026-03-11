@@ -173,13 +173,14 @@ export default function Repasse() {
 
   const handleExcel = () => {
     const exportData = filtered.map((r) => ({
-      "Competência": r.competence,
-      "Vencimento": format(parseISO(r.due_date + "T00:00:00"), "dd/MM/yyyy"),
-      "Locatário": r.tenant_name,
+      "Contrato": r.contract_code,
       "Imóvel": r.property_code,
       "Endereço": r.property_address,
       "Locador": r.owner_name,
       "Tipo Locador": r.owner_person_type === "fisica" ? "Pessoa Física" : "Pessoa Jurídica",
+      "Locatário": r.tenant_name,
+      "Competência": r.competence,
+      "Vencimento": format(parseISO(r.due_date + "T00:00:00"), "dd/MM/yyyy"),
       "Valor Aluguel (R$)": r.value,
       "Tx. Adm (%)": r.management_fee_percent,
       "Valor Tx. Adm (R$)": r.management_fee_value,
@@ -192,13 +193,14 @@ export default function Repasse() {
       "Data Pagamento": r.paid_at ? format(parseISO(r.paid_at + "T00:00:00"), "dd/MM/yyyy") : "",
     }));
     exportData.push({
-      "Competência": "TOTAL",
-      "Vencimento": "",
-      "Locatário": "",
+      "Contrato": "TOTAL",
       "Imóvel": "",
       "Endereço": "",
       "Locador": "",
       "Tipo Locador": "",
+      "Locatário": "",
+      "Competência": "",
+      "Vencimento": "",
       "Valor Aluguel (R$)": totals.value,
       "Tx. Adm (%)": 0,
       "Valor Tx. Adm (R$)": totals.fee,
