@@ -692,6 +692,8 @@ export default function GestaoContratos() {
             due_date: format(dueDate, "yyyy-MM-dd"),
             value: rentVal,
             management_fee_percent: feeP,
+            management_fee_value: ir.feeVal,
+            repasse_value: ir.repasseVal,
             tax_base_value: ir.taxBase,
             irrf_value: ir.irrfVal,
             owner_net_value: ir.ownerNet,
