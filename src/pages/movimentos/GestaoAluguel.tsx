@@ -785,19 +785,117 @@ export default function GestaoContratos() {
     setLoadingInst(false);
   };
 
-  const markAsPaid = async (inst: Installment) => {
-    const paidDate = paidDateInputs[inst.id] || format(new Date(), "yyyy-MM-dd");
-    setMarkingPaid(inst.id);
-    const { error: err } = await supabase.from("rental_installments")
-      .update({ status: "pago", paid_at: paidDate, updated_at: new Date().toISOString() })
-      .eq("id", inst.id);
-    if (err) { toast.error("Erro ao marcar parcela como paga."); }
-    else {
-      toast.success("Parcela marcada como paga.");
-      setInstallments((prev) => prev.map((i) => i.id === inst.id ? { ...i, status: "pago", paid_at: paidDate } : i));
+  // Generate accounts receivable function
+  const handleGenerateCR = async () => {
+    if (!managementContract || !company) return;
+    setGeneratingCR(true);
+    try {
+      const pendingInsts = installments.filter((i) => i.financial_status === "pending");
+      if (pendingInsts.length === 0) {
+        toast.warning("Nenhuma parcela pendente para gerar.");
+        setGeneratingCR(false);
+        setGenerateCROpen(false);
+        return;
+      }
+
+      // Get tenant_id from contract
+      const tenantId = managementContract.tenant_id;
+
+      for (const inst of pendingInsts) {
+        // Build document_number: ALUG-{contractCode}-{YYYYMM}
+        const [month, year] = inst.competence.split("/");
+        const compYYYYMM = `${year}${month}`;
+        const contractRef = managementContract.code ?? managementContract.id.slice(0, 8);
+        const docNumber = `ALUG-${contractRef}-${compYYYYMM}`;
+
+        // Check uniqueness
+        const { data: existing } = await supabase
+          .from("accounts_receivable")
+          .select("id")
+          .eq("company_id", company.id)
+          .eq("document_number", docNumber)
+          .maybeSingle();
+
+        if (existing) {
+          toast.warning(`Título ${docNumber} já existe. Ignorado.`);
+          continue;
+        }
+
+        // Create accounts_receivable record
+        const { data: arData, error: arErr } = await supabase
+          .from("accounts_receivable")
+          .insert({
+            company_id: company.id,
+            client_id: tenantId,
+            contract_id: managementContract.id,
+            installment_id: inst.id,
+            document_number: docNumber,
+            description: `Aluguel - Contrato ${contractRef} - Parcela ${inst.competence}`,
+            issue_date: format(new Date(), "yyyy-MM-dd"),
+            due_date: inst.due_date,
+            amount: inst.value,
+            source_type: "contract_installment",
+            status: "pending",
+          })
+          .select("id")
+          .single();
+
+        if (arErr || !arData) {
+          toast.error(`Erro ao gerar título para ${inst.competence}: ${arErr?.message}`);
+          continue;
+        }
+
+        // Update installment
+        await supabase
+          .from("rental_installments")
+          .update({
+            financial_status: "generated",
+            accounts_receivable_id: arData.id,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", inst.id);
+      }
+
+      toast.success(`${pendingInsts.length} título(s) de Contas a Receber gerado(s) com sucesso!`);
+      setGenerateCROpen(false);
+
+      // Reload installments
+      const { data } = await supabase.from("rental_installments").select("*").eq("contract_id", managementContract.id).order("due_date");
+      setInstallments((data as Installment[]) ?? []);
+    } catch (e: any) {
+      toast.error(e.message ?? "Erro ao gerar Contas a Receber.");
+    } finally {
+      setGeneratingCR(false);
     }
-    setMarkingPaid(null);
   };
+
+  // Reopen pending installments (admin)
+  const handleReopenInst = async () => {
+    if (!managementContract) return;
+    setReopeningInst(true);
+    try {
+      const generatedInsts = installments.filter((i) => i.financial_status === "generated");
+      for (const inst of generatedInsts) {
+        if (inst.accounts_receivable_id) {
+          await supabase.from("accounts_receivable").delete().eq("id", inst.accounts_receivable_id);
+        }
+        await supabase.from("rental_installments").update({
+          financial_status: "pending",
+          accounts_receivable_id: null,
+          updated_at: new Date().toISOString(),
+        }).eq("id", inst.id);
+      }
+      toast.success(`${generatedInsts.length} parcela(s) reaberta(s) com sucesso.`);
+      setReopenInstOpen(false);
+      const { data } = await supabase.from("rental_installments").select("*").eq("contract_id", managementContract.id).order("due_date");
+      setInstallments((data as Installment[]) ?? []);
+    } catch (e: any) {
+      toast.error(e.message ?? "Erro ao reabrir parcelas.");
+    } finally {
+      setReopeningInst(false);
+    }
+  };
+
 
   const saveInstValue = async (inst: Installment) => {
     const newVal = parseCurrency(editingInstValue[inst.id]);
