@@ -1175,6 +1175,12 @@ export default function GestaoContratos() {
               </Button>
             </div>
           </DialogHeader>
+          {(managementContract?.status === "encerrado" || managementContract?.status === "cancelado") && (
+            <div className="shrink-0 mx-0 mb-2 rounded-lg bg-muted/50 border border-border/50 px-4 py-2.5 text-sm text-muted-foreground flex items-center gap-2">
+              <Eye className="h-4 w-4 shrink-0" />
+              Contrato <strong className="text-foreground">{managementContract.status === "encerrado" ? "encerrado" : "cancelado"}</strong> — somente visualização. Não é possível registrar pagamentos ou editar valores.
+            </div>
+          )}
           <div className="overflow-auto flex-1">
             {loadingInst ? (
               <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
