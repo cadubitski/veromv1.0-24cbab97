@@ -97,6 +97,7 @@ export function ActionGear({ actions, legendKeys }: ActionGearProps) {
             key={idx}
             onClick={action.onClick}
             disabled={action.disabled}
+            title={action.tooltip}
             className={
               action.variant === "destructive"
                 ? "text-destructive focus:text-destructive focus:bg-destructive/10"
