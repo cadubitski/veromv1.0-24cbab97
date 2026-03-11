@@ -40,6 +40,8 @@ const userNav: NavItem[] = [
     icon: BarChart2,
     children: [
       { label: "Repasse", href: "/relatorios/repasse" },
+      { label: "DIMOB Anual", href: "/relatorios/dimob" },
+      { label: "Informe de Rendimentos", href: "/relatorios/informe-rendimentos" },
     ],
   },
   {

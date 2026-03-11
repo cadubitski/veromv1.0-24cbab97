@@ -19,6 +19,8 @@ import Repasse from "./pages/relatorios/Repasse";
 import ModelosDocumentos from "./pages/documentos/ModelosDocumentos";
 import EditorModelo from "./pages/documentos/EditorModelo";
 import TabelaIR from "./pages/cadastros/TabelaIR";
+import Dimob from "./pages/relatorios/Dimob";
+import InformeRendimentos from "./pages/relatorios/InformeRendimentos";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
