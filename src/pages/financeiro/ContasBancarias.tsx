@@ -177,7 +177,6 @@ export default function ContasBancarias() {
       account_number: a.account_number,
       account_digit: a.account_digit ?? "",
       account_name: a.account_name,
-      initial_balance: String(a.initial_balance),
       active: a.active,
       external_provider: a.external_provider ?? "",
       external_account_id: a.external_account_id ?? "",
