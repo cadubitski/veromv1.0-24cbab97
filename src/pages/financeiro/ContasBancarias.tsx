@@ -145,7 +145,7 @@ export default function ContasBancarias() {
       return matchSearch && matchActive;
     });
     arr = [...arr].sort((a, b) => {
-      if (sortKey === "current_balance" || sortKey === "initial_balance") {
+      if (sortKey === "current_balance") {
         const diff = (a[sortKey] as number) - (b[sortKey] as number);
         return sortDir === "asc" ? diff : -diff;
       }
