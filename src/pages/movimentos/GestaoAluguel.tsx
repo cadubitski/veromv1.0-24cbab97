@@ -118,6 +118,14 @@ const INST_LABELS: Record<string, string> = {
   atrasado: "Atrasado",
 };
 
+// Financial status badge for installments
+const FinancialStatusBadge = ({ status }: { status: string }) => {
+  if (status === "paid") return <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/25 text-xs font-normal">Pago</Badge>;
+  if (status === "generated") return <Badge className="bg-blue-500/15 text-blue-600 border-blue-500/25 text-xs font-normal">CR Gerado</Badge>;
+  if (status === "cancelled") return <Badge variant="destructive" className="bg-destructive/10 text-destructive border-destructive/20 text-xs font-normal">Cancelado</Badge>;
+  return <Badge variant="outline" className="text-amber-600 border-amber-500/30 bg-amber-500/10 text-xs font-normal">Pendente</Badge>;
+};
+
 
 // Searchable select component
 function SearchableSelect({
