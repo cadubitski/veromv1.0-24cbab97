@@ -565,32 +565,38 @@ export default function ContasReceber() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nº Documento</TableHead>
-                      <TableHead>Locatário</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Vencimento</TableHead>
-                      <TableHead>Valor</TableHead>
-                      <TableHead>Origem</TableHead>
+                      {visibleCols.has("document_number") && <TableHead>Nº Documento</TableHead>}
+                      {visibleCols.has("tenant_name")     && <TableHead>Locatário</TableHead>}
+                      {visibleCols.has("description")     && <TableHead>Descrição</TableHead>}
+                      {visibleCols.has("issue_date")      && <TableHead>Emissão</TableHead>}
+                      {visibleCols.has("due_date")        && <TableHead>Vencimento</TableHead>}
+                      {visibleCols.has("amount")          && <TableHead>Valor</TableHead>}
+                      {visibleCols.has("source_type")     && <TableHead>Origem</TableHead>}
                       <TableHead className="w-px whitespace-nowrap">Status</TableHead>
+                      {visibleCols.has("paid_at")         && <TableHead>Recebido em</TableHead>}
                       <TableHead className="w-px whitespace-nowrap">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filtered.map((item) => (
                       <TableRow key={item.id}>
-                        <TableCell className="font-mono text-sm font-medium">{item.document_number}</TableCell>
-                        <TableCell className="font-medium">{item.tenant_name ?? "—"}</TableCell>
-                        <TableCell className="max-w-[180px] truncate text-muted-foreground">{item.description}</TableCell>
-                        <TableCell className="whitespace-nowrap">{fmtDate(item.due_date)}</TableCell>
-                        <TableCell className="whitespace-nowrap font-mono">{fmt(item.amount)}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {item.source_type === "manual" ? "Manual" : "Contrato"}
-                          </Badge>
-                        </TableCell>
+                        {visibleCols.has("document_number") && <TableCell className="font-mono text-sm font-medium">{item.document_number}</TableCell>}
+                        {visibleCols.has("tenant_name")     && <TableCell className="font-medium">{item.tenant_name ?? "—"}</TableCell>}
+                        {visibleCols.has("description")     && <TableCell className="max-w-[180px] truncate text-muted-foreground">{item.description}</TableCell>}
+                        {visibleCols.has("issue_date")      && <TableCell className="whitespace-nowrap">{fmtDate(item.issue_date)}</TableCell>}
+                        {visibleCols.has("due_date")        && <TableCell className="whitespace-nowrap">{fmtDate(item.due_date)}</TableCell>}
+                        {visibleCols.has("amount")          && <TableCell className="whitespace-nowrap font-mono">{fmt(item.amount)}</TableCell>}
+                        {visibleCols.has("source_type")     && (
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {item.source_type === "manual" ? "Manual" : "Contrato"}
+                            </Badge>
+                          </TableCell>
+                        )}
                         <TableCell className="w-px whitespace-nowrap">
                           <StatusDot status={item.status} />
                         </TableCell>
+                        {visibleCols.has("paid_at")         && <TableCell className="whitespace-nowrap">{fmtDate(item.paid_at)}</TableCell>}
                         <TableCell className="w-px whitespace-nowrap">
                           <ActionGear
                             legendKeys={["pending", "paid", "cancelled"]}
