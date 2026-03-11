@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
 import {
-  Loader2, Plus, Search, CheckCircle2, XCircle, Eye,
+  Loader2, Plus, Search, Eye,
   Pencil, Trash2, ArrowDownCircle, RotateCcw, Filter,
   Receipt, TrendingUp, Clock, Ban
 } from "lucide-react";
+import { StatusDot, ActionGear } from "@/components/TableActions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
