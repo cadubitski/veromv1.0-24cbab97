@@ -421,9 +421,14 @@ export default function ContasReceber() {
             <h1 className="text-2xl font-bold text-foreground">Contas a Receber</h1>
             <p className="text-muted-foreground mt-1">Gerencie os títulos a receber e registre pagamentos</p>
           </div>
-          <Button onClick={() => { setForm(emptyForm); setCreateOpen(true); }} className="gap-2">
-            <Plus className="h-4 w-4" /> Novo título
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleExport} className="gap-2">
+              <FileDown className="h-4 w-4" /> Exportar Excel
+            </Button>
+            <Button onClick={() => { setForm(emptyForm); setCreateOpen(true); }} className="gap-2">
+              <Plus className="h-4 w-4" /> Novo título
+            </Button>
+          </div>
         </div>
 
         {/* Summary Cards */}
