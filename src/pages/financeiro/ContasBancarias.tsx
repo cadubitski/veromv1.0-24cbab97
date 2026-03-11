@@ -211,7 +211,7 @@ export default function ContasBancarias() {
     setSaving(true);
     setError(null);
 
-    const initial = parseFloat(form.initial_balance) || 0;
+    const initial = parseCurrency(form.initial_balance) ?? 0;
 
     try {
       if (editAccount) {
