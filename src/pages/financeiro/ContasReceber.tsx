@@ -5,6 +5,7 @@ import {
   Receipt, TrendingUp, Clock, Ban, FileDown
 } from "lucide-react";
 import { StatusDot, ActionGear } from "@/components/TableActions";
+import ColumnSelector, { ColumnDef } from "@/components/ColumnSelector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +34,19 @@ import { format, parseISO } from "date-fns";
 import { maskCurrency, parseCurrency } from "@/lib/masks";
 import { ptBR } from "date-fns/locale";
 import * as XLSX from "xlsx";
+
+// ─── Column definitions ───────────────────────────────────────────────────────
+
+const ALL_COLUMNS: ColumnDef[] = [
+  { key: "document_number", label: "Nº Documento",  defaultVisible: true },
+  { key: "tenant_name",     label: "Locatário",      defaultVisible: true },
+  { key: "description",     label: "Descrição",      defaultVisible: true },
+  { key: "issue_date",      label: "Emissão",        defaultVisible: true },
+  { key: "due_date",        label: "Vencimento",     defaultVisible: true },
+  { key: "amount",          label: "Valor",          defaultVisible: true },
+  { key: "source_type",     label: "Origem",         defaultVisible: true },
+  { key: "paid_at",         label: "Recebido em",    defaultVisible: false },
+];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -106,6 +120,9 @@ export default function ContasReceber() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [visibleCols, setVisibleCols] = useState<Set<string>>(
+    new Set(ALL_COLUMNS.filter((c) => c.defaultVisible !== false).map((c) => c.key))
+  );
 
   // Tenants & bank accounts
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -370,19 +387,37 @@ export default function ContasReceber() {
     fetchData();
   };
 
-  // ── Export to Excel ─────────────────────────────────────────────────────────
+  // ── Export to Excel (respects visible columns) ──────────────────────────────
   const handleExport = () => {
-    const rows = filtered.map((i) => ({
-      "Nº Documento": i.document_number,
-      "Locatário": i.tenant_name ?? "—",
-      "Descrição": i.description,
-      "Emissão": fmtDate(i.issue_date),
-      "Vencimento": fmtDate(i.due_date),
-      "Valor (R$)": i.amount,
-      "Origem": i.source_type === "manual" ? "Manual" : "Contrato",
-      "Status": statusLabel(i.status),
-      "Recebido em": fmtDate(i.paid_at),
-    }));
+    const colMap: Record<string, (i: Receivable) => any> = {
+      document_number: (i) => i.document_number,
+      tenant_name:     (i) => i.tenant_name ?? "—",
+      description:     (i) => i.description,
+      issue_date:      (i) => fmtDate(i.issue_date),
+      due_date:        (i) => fmtDate(i.due_date),
+      amount:          (i) => i.amount,
+      source_type:     (i) => i.source_type === "manual" ? "Manual" : "Contrato",
+      paid_at:         (i) => fmtDate(i.paid_at),
+    };
+    const labelMap: Record<string, string> = {
+      document_number: "Nº Documento",
+      tenant_name:     "Locatário",
+      description:     "Descrição",
+      issue_date:      "Emissão",
+      due_date:        "Vencimento",
+      amount:          "Valor (R$)",
+      source_type:     "Origem",
+      paid_at:         "Recebido em",
+    };
+    // Always include Status
+    const rows = filtered.map((i) => {
+      const row: Record<string, any> = {};
+      ALL_COLUMNS.filter((c) => visibleCols.has(c.key)).forEach((c) => {
+        row[labelMap[c.key]] = colMap[c.key](i);
+      });
+      row["Status"] = statusLabel(i.status);
+      return row;
+    });
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Contas a Receber");
@@ -422,6 +457,7 @@ export default function ContasReceber() {
             <p className="text-muted-foreground mt-1">Gerencie os títulos a receber e registre pagamentos</p>
           </div>
           <div className="flex gap-2">
+            <ColumnSelector columns={ALL_COLUMNS} visible={visibleCols} onChange={setVisibleCols} />
             <Button variant="outline" onClick={handleExport} className="gap-2">
               <FileDown className="h-4 w-4" /> Exportar Excel
             </Button>
@@ -529,32 +565,38 @@ export default function ContasReceber() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nº Documento</TableHead>
-                      <TableHead>Locatário</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Vencimento</TableHead>
-                      <TableHead>Valor</TableHead>
-                      <TableHead>Origem</TableHead>
+                      {visibleCols.has("document_number") && <TableHead>Nº Documento</TableHead>}
+                      {visibleCols.has("tenant_name")     && <TableHead>Locatário</TableHead>}
+                      {visibleCols.has("description")     && <TableHead>Descrição</TableHead>}
+                      {visibleCols.has("issue_date")      && <TableHead>Emissão</TableHead>}
+                      {visibleCols.has("due_date")        && <TableHead>Vencimento</TableHead>}
+                      {visibleCols.has("amount")          && <TableHead>Valor</TableHead>}
+                      {visibleCols.has("source_type")     && <TableHead>Origem</TableHead>}
                       <TableHead className="w-px whitespace-nowrap">Status</TableHead>
+                      {visibleCols.has("paid_at")         && <TableHead>Recebido em</TableHead>}
                       <TableHead className="w-px whitespace-nowrap">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filtered.map((item) => (
                       <TableRow key={item.id}>
-                        <TableCell className="font-mono text-sm font-medium">{item.document_number}</TableCell>
-                        <TableCell className="font-medium">{item.tenant_name ?? "—"}</TableCell>
-                        <TableCell className="max-w-[180px] truncate text-muted-foreground">{item.description}</TableCell>
-                        <TableCell className="whitespace-nowrap">{fmtDate(item.due_date)}</TableCell>
-                        <TableCell className="whitespace-nowrap font-mono">{fmt(item.amount)}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {item.source_type === "manual" ? "Manual" : "Contrato"}
-                          </Badge>
-                        </TableCell>
+                        {visibleCols.has("document_number") && <TableCell className="font-mono text-sm font-medium">{item.document_number}</TableCell>}
+                        {visibleCols.has("tenant_name")     && <TableCell className="font-medium">{item.tenant_name ?? "—"}</TableCell>}
+                        {visibleCols.has("description")     && <TableCell className="max-w-[180px] truncate text-muted-foreground">{item.description}</TableCell>}
+                        {visibleCols.has("issue_date")      && <TableCell className="whitespace-nowrap">{fmtDate(item.issue_date)}</TableCell>}
+                        {visibleCols.has("due_date")        && <TableCell className="whitespace-nowrap">{fmtDate(item.due_date)}</TableCell>}
+                        {visibleCols.has("amount")          && <TableCell className="whitespace-nowrap font-mono">{fmt(item.amount)}</TableCell>}
+                        {visibleCols.has("source_type")     && (
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {item.source_type === "manual" ? "Manual" : "Contrato"}
+                            </Badge>
+                          </TableCell>
+                        )}
                         <TableCell className="w-px whitespace-nowrap">
                           <StatusDot status={item.status} />
                         </TableCell>
+                        {visibleCols.has("paid_at")         && <TableCell className="whitespace-nowrap">{fmtDate(item.paid_at)}</TableCell>}
                         <TableCell className="w-px whitespace-nowrap">
                           <ActionGear
                             legendKeys={["pending", "paid", "cancelled"]}
