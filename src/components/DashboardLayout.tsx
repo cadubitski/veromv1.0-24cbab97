@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Building2, LayoutDashboard, Users, CreditCard,
   LogOut, Menu, ChevronDown, ChevronRight,
-  Shield, BookUser, Home, Sun, Moon, TrendingUp, BarChart2, FileEdit
+  Shield, BookUser, Home, Sun, Moon, TrendingUp, BarChart2, FileEdit, Landmark
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,14 @@ interface NavItem {
 const userNav: NavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
   {
+    label: "Financeiro",
+    icon: Landmark,
+    children: [
+      { label: "Contas Bancárias", href: "/financeiro/contas-bancarias" },
+      { label: "Movimentação Bancária", href: "/financeiro/movimentacao-bancaria" },
+    ],
+  },
+  {
     label: "Cadastros",
     icon: BookUser,
     children: [
@@ -26,7 +34,6 @@ const userNav: NavItem[] = [
       { label: "Imóveis", href: "/cadastros/imoveis" },
       { label: "Locatários", href: "/cadastros/inquilinos" },
       { label: "Tabela de IR", href: "/cadastros/tabela-ir" },
-      { label: "Contas Bancárias", href: "/financeiro/contas-bancarias" },
     ],
   },
   {
