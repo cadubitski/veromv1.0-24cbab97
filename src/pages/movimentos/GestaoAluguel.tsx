@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/tooltip";
 import {
   Loader2, Plus, Search, Pencil, Trash2, ChevronDown, ChevronUp, FileText, CheckCircle2, Eye, Filter, Printer, Download,
+  DollarSign, RefreshCcw, AlertCircle,
 } from "lucide-react";
 import ColumnSelector, { ColumnDef } from "@/components/ColumnSelector";
 import { StatusDot, ActionGear } from "@/components/TableActions";
