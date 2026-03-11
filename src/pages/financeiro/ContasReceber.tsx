@@ -5,6 +5,7 @@ import {
   Receipt, TrendingUp, Clock, Ban, FileDown
 } from "lucide-react";
 import { StatusDot, ActionGear } from "@/components/TableActions";
+import ColumnSelector, { ColumnDef } from "@/components/ColumnSelector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +34,19 @@ import { format, parseISO } from "date-fns";
 import { maskCurrency, parseCurrency } from "@/lib/masks";
 import { ptBR } from "date-fns/locale";
 import * as XLSX from "xlsx";
+
+// ─── Column definitions ───────────────────────────────────────────────────────
+
+const ALL_COLUMNS: ColumnDef[] = [
+  { key: "document_number", label: "Nº Documento",  defaultVisible: true },
+  { key: "tenant_name",     label: "Locatário",      defaultVisible: true },
+  { key: "description",     label: "Descrição",      defaultVisible: true },
+  { key: "issue_date",      label: "Emissão",        defaultVisible: true },
+  { key: "due_date",        label: "Vencimento",     defaultVisible: true },
+  { key: "amount",          label: "Valor",          defaultVisible: true },
+  { key: "source_type",     label: "Origem",         defaultVisible: true },
+  { key: "paid_at",         label: "Recebido em",    defaultVisible: false },
+];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
