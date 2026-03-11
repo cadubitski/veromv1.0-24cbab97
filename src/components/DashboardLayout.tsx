@@ -9,73 +9,117 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-interface NavItem {
+export interface NavChild {
+  label: string;
+  href: string;
+  /** Chave de permissão para este item de submenu. Omitir = sempre visível (somente admins) */
+  permKey?: string;
+}
+
+export interface NavItem {
   label: string;
   icon: React.ElementType;
   href?: string;
-  children?: { label: string; href: string }[];
+  /** Chave de permissão para item direto */
+  permKey?: string;
+  children?: NavChild[];
 }
 
-const userNav: NavItem[] = [
-  { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
+// ─── Mapa completo do menu ────────────────────────────────────────────────────
+// permKey no grupo: exibe o grupo se o usuário tiver qualquer filho liberado
+// permKey no filho: controla visibilidade individual
+
+export const userNav: NavItem[] = [
+  { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard", permKey: "dashboard" },
   {
     label: "Financeiro",
     icon: Landmark,
     children: [
-      { label: "Contas Bancárias", href: "/financeiro/contas-bancarias" },
-      { label: "Movimentação Bancária", href: "/financeiro/movimentacao-bancaria" },
+      { label: "Contas Bancárias",     href: "/financeiro/contas-bancarias",    permKey: "financeiro.contas-bancarias" },
+      { label: "Movimentação Bancária", href: "/financeiro/movimentacao-bancaria", permKey: "financeiro.movimentacao-bancaria" },
     ],
   },
   {
     label: "Cadastros",
     icon: BookUser,
     children: [
-      { label: "Locadores", href: "/cadastros/clientes" },
-      { label: "Imóveis", href: "/cadastros/imoveis" },
-      { label: "Locatários", href: "/cadastros/inquilinos" },
-      { label: "Tabela de IR", href: "/cadastros/tabela-ir" },
+      { label: "Locadores",    href: "/cadastros/clientes",    permKey: "cadastros.clientes" },
+      { label: "Imóveis",      href: "/cadastros/imoveis",     permKey: "cadastros.imoveis" },
+      { label: "Locatários",   href: "/cadastros/inquilinos",  permKey: "cadastros.inquilinos" },
+      { label: "Tabela de IR", href: "/cadastros/tabela-ir",   permKey: "cadastros.tabela-ir" },
     ],
   },
   {
     label: "Movimentos",
     icon: TrendingUp,
     children: [
-      { label: "Gestão de Contratos", href: "/movimentos/gestao-aluguel" },
+      { label: "Gestão de Contratos", href: "/movimentos/gestao-aluguel", permKey: "movimentos.gestao-aluguel" },
     ],
   },
   {
     label: "Relatórios",
     icon: BarChart2,
     children: [
-      { label: "Repasse", href: "/relatorios/repasse" },
-      { label: "DIMOB Anual", href: "/relatorios/dimob" },
-      { label: "Informe de Rendimentos", href: "/relatorios/informe-rendimentos" },
+      { label: "Repasse",               href: "/relatorios/repasse",              permKey: "relatorios.repasse" },
+      { label: "DIMOB Anual",           href: "/relatorios/dimob",                permKey: "relatorios.dimob" },
+      { label: "Informe de Rendimentos",href: "/relatorios/informe-rendimentos",  permKey: "relatorios.informe-rendimentos" },
     ],
   },
   {
     label: "Configurações",
     icon: FileEdit,
     children: [
-      { label: "Modelos de Documentos", href: "/documentos/modelos" },
+      { label: "Modelos de Documentos", href: "/documentos/modelos", permKey: "configuracoes.modelos" },
     ],
   },
 ];
 
-const adminNav: NavItem[] = [
+export const adminNav: NavItem[] = [
   {
     label: "Administração",
     icon: Shield,
     children: [
       { label: "Financeiro", href: "/admin/financeiro" },
-      { label: "Usuários", href: "/admin/usuarios" },
+      { label: "Usuários",   href: "/admin/usuarios" },
     ],
   },
 ];
 
-function NavItem({ item, collapsed, onNavigate }: { item: NavItem; collapsed: boolean; onNavigate?: () => void }) {
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Verifica se um item (ou qualquer filho) está liberado para o conjunto de permissões */
+function isItemVisible(item: NavItem, permissions: Set<string>): boolean {
+  if (permissions.has("*")) return true; // admin
+  if (item.href) {
+    return item.permKey ? permissions.has(item.permKey) : false;
+  }
+  // grupo com filhos: visível se ao menos 1 filho estiver liberado
+  return (item.children ?? []).some((c) => !c.permKey || permissions.has(c.permKey));
+}
+
+function visibleChildren(item: NavItem, permissions: Set<string>): NavChild[] {
+  if (permissions.has("*")) return item.children ?? [];
+  return (item.children ?? []).filter((c) => !c.permKey || permissions.has(c.permKey));
+}
+
+// ─── NavItem Component ────────────────────────────────────────────────────────
+
+function NavItemComp({
+  item,
+  collapsed,
+  permissions,
+  onNavigate,
+}: {
+  item: NavItem;
+  collapsed: boolean;
+  permissions: Set<string>;
+  onNavigate?: () => void;
+}) {
   const location = useLocation();
+  const children = visibleChildren(item, permissions);
+
   const [open, setOpen] = useState(() =>
-    item.children?.some((c) => location.pathname.startsWith(c.href)) ?? false
+    children.some((c) => location.pathname.startsWith(c.href)) ?? false
   );
 
   if (item.href) {
@@ -113,7 +157,7 @@ function NavItem({ item, collapsed, onNavigate }: { item: NavItem; collapsed: bo
       </button>
       {open && !collapsed && (
         <div className="ml-7 mt-1 space-y-0.5 border-l border-[hsl(var(--sidebar-border))] pl-3">
-          {item.children?.map((child) => {
+          {children.map((child) => {
             const active = location.pathname === child.href || location.pathname.startsWith(child.href + "/");
             return (
               <Link
@@ -137,12 +181,14 @@ function NavItem({ item, collapsed, onNavigate }: { item: NavItem; collapsed: bo
   );
 }
 
+// ─── ThemeToggle ──────────────────────────────────────────────────────────────
+
 function ThemeToggle() {
   const [dark, setDark] = useState(() => {
     if (typeof window === "undefined") return true;
     const stored = localStorage.getItem("verom-theme");
     if (stored) return stored === "dark";
-    return true; // default dark
+    return true;
   });
 
   useEffect(() => {
@@ -177,8 +223,10 @@ if (typeof window !== "undefined") {
   }
 }
 
+// ─── DashboardLayout ──────────────────────────────────────────────────────────
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { profile, company, role, signOut } = useAuth();
+  const { profile, company, role, signOut, permissions } = useAuth();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -188,7 +236,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     navigate("/");
   };
 
-  const navItems = role === "admin" ? [...userNav, ...adminNav] : userNav;
+  // Monta a lista de itens visíveis para o usuário
+  const baseNav = role === "admin"
+    ? [...userNav, ...adminNav]
+    : userNav.filter((item) => isItemVisible(item, permissions));
 
   const SidebarContent = ({ onNavigate }: { onNavigate?: () => void }) => (
     <div className="flex h-full flex-col bg-[hsl(var(--sidebar-background))]">
@@ -218,8 +269,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <ThemeToggle />
           </div>
         )}
-        {navItems.map((item) => (
-          <NavItem key={item.label} item={item} collapsed={collapsed} onNavigate={onNavigate} />
+        {baseNav.map((item) => (
+          <NavItemComp
+            key={item.label}
+            item={item}
+            collapsed={collapsed}
+            permissions={permissions}
+            onNavigate={onNavigate}
+          />
         ))}
       </nav>
 
