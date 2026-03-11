@@ -655,6 +655,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_public_tables: {
+        Args: never
+        Returns: {
+          table_name: string
+        }[]
+      }
       get_user_company_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
