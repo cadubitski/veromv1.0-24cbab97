@@ -14,6 +14,71 @@ export type Database = {
   }
   public: {
     Tables: {
+      bank_accounts: {
+        Row: {
+          account_digit: string | null
+          account_name: string
+          account_number: string
+          active: boolean
+          agency_digit: string | null
+          agency_number: string
+          bank_code: string
+          bank_name: string
+          company_id: string
+          created_at: string
+          current_balance: number
+          external_account_id: string | null
+          external_provider: string | null
+          id: string
+          initial_balance: number
+          updated_at: string
+        }
+        Insert: {
+          account_digit?: string | null
+          account_name: string
+          account_number: string
+          active?: boolean
+          agency_digit?: string | null
+          agency_number: string
+          bank_code: string
+          bank_name: string
+          company_id: string
+          created_at?: string
+          current_balance?: number
+          external_account_id?: string | null
+          external_provider?: string | null
+          id?: string
+          initial_balance?: number
+          updated_at?: string
+        }
+        Update: {
+          account_digit?: string | null
+          account_name?: string
+          account_number?: string
+          active?: boolean
+          agency_digit?: string | null
+          agency_number?: string
+          bank_code?: string
+          bank_name?: string
+          company_id?: string
+          created_at?: string
+          current_balance?: number
+          external_account_id?: string | null
+          external_provider?: string | null
+          id?: string
+          initial_balance?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_accounts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string | null
