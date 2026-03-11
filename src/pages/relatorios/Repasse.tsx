@@ -17,6 +17,7 @@ import * as XLSX from "xlsx";
 
 interface InstRow {
   id: string;
+  contract_code: string;
   competence: string;
   due_date: string;
   value: number;
