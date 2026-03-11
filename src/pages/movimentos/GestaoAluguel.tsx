@@ -1280,15 +1280,36 @@ export default function GestaoContratos() {
                   )}
                 </DialogDescription>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 shrink-0"
-                onClick={exportInstallmentsExcel}
-                disabled={loadingInst || installments.length === 0}
-              >
-                <Download className="h-4 w-4" /> Excel
-              </Button>
+              <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+                {installments.some((i) => i.financial_status === "generated") && managementContract?.status === "ativo" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setReopenInstOpen(true)}
+                  >
+                    <RefreshCcw className="h-4 w-4" /> Reabrir pendentes
+                  </Button>
+                )}
+                {installments.some((i) => i.financial_status === "pending") && managementContract?.status === "ativo" && (
+                  <Button
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setGenerateCROpen(true)}
+                  >
+                    <DollarSign className="h-4 w-4" /> Gerar Contas a Receber
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={exportInstallmentsExcel}
+                  disabled={loadingInst || installments.length === 0}
+                >
+                  <Download className="h-4 w-4" /> Excel
+                </Button>
+              </div>
             </div>
           </DialogHeader>
           {(managementContract?.status === "encerrado" || managementContract?.status === "cancelado") && (
@@ -1306,7 +1327,8 @@ export default function GestaoContratos() {
                   <TableRow className="border-border/40">
                     <TableHead className="whitespace-nowrap">Competência</TableHead>
                     <TableHead className="whitespace-nowrap">Vencimento</TableHead>
-                    <TableHead className="whitespace-nowrap w-px">Status</TableHead>
+                    <TableHead className="whitespace-nowrap w-px">Situação</TableHead>
+                    <TableHead className="whitespace-nowrap w-px">Financeiro</TableHead>
                     <TableHead className="whitespace-nowrap">Pagamento</TableHead>
                     <TableHead className="whitespace-nowrap text-right">Valor do aluguel</TableHead>
                     <TableHead className="whitespace-nowrap text-right">Tx. Adm %</TableHead>
@@ -1316,12 +1338,12 @@ export default function GestaoContratos() {
                     <TableHead className="whitespace-nowrap text-right">Dedução IR</TableHead>
                     <TableHead className="whitespace-nowrap text-right">Valor IR</TableHead>
                     <TableHead className="whitespace-nowrap text-right font-semibold">Repasse ao proprietário</TableHead>
-                    <TableHead className="text-right w-px">Ação</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {installments.map((inst) => {
                     const resolvedStatus = resolveInstStatus(inst);
+                    const financialStatus = inst.financial_status ?? "pending";
                     const isEditing = editingInstValue[inst.id] !== undefined;
                     const feeP = inst.management_fee_percent ?? 0;
                     const feeV = inst.management_fee_value ?? (inst.value * feeP / 100);
@@ -1329,6 +1351,8 @@ export default function GestaoContratos() {
                     const irrfV = inst.irrf_value ?? 0;
                     const ownerNet = inst.owner_net_value ?? inst.repasse_value ?? (taxBase - irrfV);
                     const contractReadOnly = managementContract?.status === "encerrado" || managementContract?.status === "cancelado";
+                    // Block editing if financial status is generated or paid
+                    const instFinancialLocked = financialStatus === "generated" || financialStatus === "paid";
                     return (
                       <TableRow key={inst.id} className={`border-border/40 ${contractReadOnly ? "opacity-80" : ""}`}>
                         {/* Competência */}
@@ -1337,30 +1361,26 @@ export default function GestaoContratos() {
                         {/* Vencimento */}
                         <TableCell className="text-sm whitespace-nowrap">{format(parseISO(inst.due_date + "T00:00:00"), "dd/MM/yyyy")}</TableCell>
 
-                        {/* Status */}
+                        {/* Situação (legacy status dot) */}
                         <TableCell className="w-px whitespace-nowrap">
                           <StatusDot status={resolvedStatus} />
                         </TableCell>
 
-                        {/* Pagamento */}
+                        {/* Financial Status Badge */}
+                        <TableCell className="w-px whitespace-nowrap">
+                          <FinancialStatusBadge status={financialStatus} />
+                        </TableCell>
+
+                        {/* Pagamento - read only, filled by baixa */}
                         <TableCell className="whitespace-nowrap">
-                          {inst.status === "pago" ? (
-                            <span className="text-sm text-muted-foreground whitespace-nowrap">{inst.paid_at ? format(parseISO(inst.paid_at + "T00:00:00"), "dd/MM/yyyy") : "—"}</span>
-                          ) : contractReadOnly ? (
-                            <span className="text-sm text-muted-foreground">—</span>
-                          ) : (
-                            <Input
-                              type="date"
-                              className="h-7 text-xs w-36"
-                              value={paidDateInputs[inst.id] ?? ""}
-                              onChange={(e) => setPaidDateInputs((p) => ({ ...p, [inst.id]: e.target.value }))}
-                            />
-                          )}
+                          <span className="text-sm text-muted-foreground whitespace-nowrap">
+                            {inst.paid_at ? format(parseISO(inst.paid_at + "T00:00:00"), "dd/MM/yyyy") : "—"}
+                          </span>
                         </TableCell>
 
                         {/* Valor do aluguel */}
                         <TableCell className="font-mono text-sm text-right whitespace-nowrap">
-                          {!contractReadOnly && inst.status !== "pago" && isEditing ? (
+                          {!contractReadOnly && !instFinancialLocked && isEditing ? (
                             <div className="flex items-center gap-1 justify-end">
                               <Input
                                 className="h-7 text-xs w-24"
@@ -1375,9 +1395,9 @@ export default function GestaoContratos() {
                             </div>
                           ) : (
                             <span
-                              className={!contractReadOnly && inst.status !== "pago" ? "cursor-pointer hover:text-primary transition-colors" : ""}
-                              title={!contractReadOnly && inst.status !== "pago" ? "Clique para editar" : ""}
-                              onClick={() => !contractReadOnly && inst.status !== "pago" && setEditingInstValue((p) => ({ ...p, [inst.id]: formatMoney(inst.value) }))}
+                              className={!contractReadOnly && !instFinancialLocked ? "cursor-pointer hover:text-primary transition-colors" : ""}
+                              title={!contractReadOnly && !instFinancialLocked ? "Clique para editar" : ""}
+                              onClick={() => !contractReadOnly && !instFinancialLocked && setEditingInstValue((p) => ({ ...p, [inst.id]: formatMoney(inst.value) }))}
                             >
                               R$ {formatMoney(inst.value)}
                             </span>
