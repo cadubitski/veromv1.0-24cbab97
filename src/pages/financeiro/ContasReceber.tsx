@@ -29,6 +29,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
+import { maskCurrency, parseCurrency } from "@/lib/masks";
 import { ptBR } from "date-fns/locale";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -187,7 +188,7 @@ export default function ContasReceber() {
       description: form.description,
       issue_date: form.issue_date,
       due_date: form.due_date,
-      amount: parseFloat(form.amount.replace(/\./g, "").replace(",", ".")),
+      amount: parseCurrency(form.amount) ?? 0,
       source_type: "manual",
       status: "pending",
     });
@@ -210,7 +211,7 @@ export default function ContasReceber() {
         description: form.description,
         issue_date: form.issue_date,
         due_date: form.due_date,
-        amount: parseFloat(form.amount.replace(/\./g, "").replace(",", ".")),
+        amount: parseCurrency(form.amount) ?? 0,
       })
       .eq("id", editItem.id);
     setSaving(false);
@@ -560,8 +561,9 @@ export default function ContasReceber() {
               <Label>Valor (R$) *</Label>
               <Input
                 value={form.amount}
-                onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+                onChange={(e) => setForm((f) => ({ ...f, amount: maskCurrency(e.target.value) }))}
                 placeholder="0,00"
+                inputMode="numeric"
               />
             </div>
           </div>
@@ -608,7 +610,12 @@ export default function ContasReceber() {
             </div>
             <div className="space-y-2">
               <Label>Valor (R$)</Label>
-              <Input value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} />
+              <Input
+                value={form.amount}
+                onChange={(e) => setForm((f) => ({ ...f, amount: maskCurrency(e.target.value) }))}
+                placeholder="0,00"
+                inputMode="numeric"
+              />
             </div>
           </div>
           <DialogFooter>
