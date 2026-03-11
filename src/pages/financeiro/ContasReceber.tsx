@@ -348,14 +348,10 @@ export default function ContasReceber() {
     if (!cancelBaixaItem) return;
     setSavingBaixa(true);
     try {
-      if (cancelBaixaItem.bank_transaction_id) {
-        const { error: delErr } = await supabase
-          .from("bank_transactions")
-          .delete()
-          .eq("id", cancelBaixaItem.bank_transaction_id);
-        if (delErr) throw new Error(delErr.message);
-      }
+      const txId = cancelBaixaItem.bank_transaction_id;
 
+      // PASSO 1: Limpar o vínculo em accounts_receivable ANTES de deletar a transação
+      // Isso evita violação de FK constraint ao deletar bank_transactions
       const { error: updErr } = await supabase
         .from("accounts_receivable")
         .update({
@@ -366,7 +362,17 @@ export default function ContasReceber() {
         })
         .eq("id", cancelBaixaItem.id);
 
-      if (updErr) throw new Error(updErr.message);
+      if (updErr) throw new Error("Erro ao atualizar título: " + updErr.message);
+
+      // PASSO 2: Agora que a FK foi desvinculada, deletar a movimentação bancária
+      // (o trigger revert_balance_on_delete ajustará o saldo automaticamente)
+      if (txId) {
+        const { error: delErr } = await supabase
+          .from("bank_transactions")
+          .delete()
+          .eq("id", txId);
+        if (delErr) throw new Error("Erro ao excluir movimentação bancária: " + delErr.message);
+      }
 
       toast.success("Baixa cancelada. Título voltou para pendente.");
       setCancelBaixaItem(null);
