@@ -308,10 +308,11 @@ export default function ContasReceber() {
           company_id: company!.id,
           bank_account_id: baixaForm.bank_account_id,
           transaction_date: baixaForm.paid_at,
+          document_number: `REC-${baixaItem.document_number}`,
           type: "credit",
           amount: baixaItem.amount,
           description: `Recebimento de título: ${baixaItem.description}`,
-          origin_type: "accounts_receivable",
+          origin_type: "contas_receber",
           origin_id: baixaItem.id,
         })
         .select("id")

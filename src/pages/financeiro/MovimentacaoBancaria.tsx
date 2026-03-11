@@ -39,6 +39,7 @@ interface BankTransaction {
   company_id: string;
   bank_account_id: string;
   transaction_date: string;
+  document_number: string;
   description: string;
   type: "credit" | "debit";
   amount: number;
@@ -49,7 +50,7 @@ interface BankTransaction {
   bank_accounts?: { account_name: string; bank_name: string; bank_code: string };
 }
 
-type SortKey = "transaction_date" | "description" | "amount" | "type";
+type SortKey = "transaction_date" | "description" | "amount" | "type" | "document_number";
 type SortDir = "asc" | "desc";
 
 const EMPTY_FORM = {
@@ -57,6 +58,7 @@ const EMPTY_FORM = {
   transaction_date: new Date().toISOString().slice(0, 10),
   type: "credit" as "credit" | "debit",
   amount: "",
+  document_number: "",
   description: "",
   origin_type: "manual",
 };
@@ -187,13 +189,30 @@ export default function MovimentacaoBancaria() {
   const f = (key: keyof typeof form, value: string) =>
     setForm((p) => ({ ...p, [key]: value }));
 
+  const validateDocNumber = async (docNumber: string): Promise<boolean> => {
+    const { data } = await supabase
+      .from("bank_transactions")
+      .select("id")
+      .eq("company_id", company!.id)
+      .eq("document_number", docNumber.trim())
+      .maybeSingle();
+    return !data;
+  };
+
   const handleSave = async () => {
     if (!form.bank_account_id) { setError("Selecione a conta bancária."); return; }
     if (!form.transaction_date) { setError("Data é obrigatória."); return; }
+    if (!form.document_number.trim()) { setError("Número do Documento é obrigatório."); return; }
     if (!form.description.trim()) { setError("Descrição é obrigatória."); return; }
     const amount = parseCurrency(form.amount);
     if (!amount || amount <= 0) { setError("Informe um valor válido."); return; }
     if (!company?.id) return;
+
+    const isUnique = await validateDocNumber(form.document_number);
+    if (!isUnique) {
+      setError("O número do documento já está sendo utilizado em outra movimentação.");
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -205,6 +224,7 @@ export default function MovimentacaoBancaria() {
           company_id: company.id,
           bank_account_id: form.bank_account_id,
           transaction_date: form.transaction_date,
+          document_number: form.document_number.trim(),
           description: form.description.trim(),
           type: form.type,
           amount,
@@ -250,6 +270,7 @@ export default function MovimentacaoBancaria() {
   // ── Excel ────────────────────────────────────────────────────────────────────
   const handleExcel = () => {
     const rows = filtered.map((t) => ({
+      "Nº Documento": t.document_number,
       "Data": fmtDate(t.transaction_date),
       "Conta": t.bank_accounts?.account_name ?? "",
       "Tipo": t.type === "credit" ? "Entrada" : "Saída",
@@ -368,6 +389,9 @@ export default function MovimentacaoBancaria() {
           <Table>
             <TableHeader>
               <TableRow className="border-border/40">
+                <TableHead className={thClass} onClick={() => handleSort("document_number")}>
+                  Nº Documento <SortIcon col="document_number" />
+                </TableHead>
                 <TableHead className={thClass} onClick={() => handleSort("transaction_date")}>
                   Data <SortIcon col="transaction_date" />
                 </TableHead>
@@ -388,13 +412,13 @@ export default function MovimentacaoBancaria() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
+                  <TableCell colSpan={8} className="text-center py-12">
                     <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12 text-muted-foreground text-sm">
+                  <TableCell colSpan={8} className="text-center py-12 text-muted-foreground text-sm">
                     {search || filterAccount || filterType || filterDateFrom || filterDateTo
                       ? "Nenhuma movimentação encontrada com os filtros aplicados."
                       : "Nenhuma movimentação registrada ainda."}
@@ -403,6 +427,9 @@ export default function MovimentacaoBancaria() {
               ) : (
                 filtered.map((t) => (
                   <TableRow key={t.id} className="border-border/40 hover:bg-muted/30 transition-colors">
+                    <TableCell className="font-mono text-xs whitespace-nowrap">
+                      {t.document_number}
+                    </TableCell>
                     <TableCell className="font-mono text-sm whitespace-nowrap">
                       {fmtDate(t.transaction_date)}
                     </TableCell>
@@ -423,7 +450,7 @@ export default function MovimentacaoBancaria() {
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="text-sm max-w-[220px] truncate" title={t.description}>
+                    <TableCell className="text-sm max-w-[200px] truncate" title={t.description}>
                       {t.description}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
@@ -441,6 +468,10 @@ export default function MovimentacaoBancaria() {
                             icon: <Trash2 className="h-3.5 w-3.5" />,
                             onClick: () => openDelete(t),
                             variant: "destructive" as const,
+                            disabled: t.origin_type !== "manual",
+                            tooltip: t.origin_type !== "manual"
+                              ? "Exclusão não permitida: movimentação originada de baixa de título financeiro."
+                              : undefined,
                           },
                         ]}
                       />
@@ -462,6 +493,16 @@ export default function MovimentacaoBancaria() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <FieldLabel label="Número do Documento" tooltip="Identificador único da movimentação. Ex: número do boleto, referência PIX, código interno." required />
+              <Input
+                value={form.document_number}
+                onChange={(e) => f("document_number", e.target.value)}
+                placeholder="Ex: BOL-2024-001, PIX-123..."
+                maxLength={100}
+              />
+            </div>
+
             <div className="space-y-2">
               <FieldLabel label="Conta bancária" tooltip="Conta onde a movimentação será registrada." required />
               <select
