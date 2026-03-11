@@ -29,6 +29,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
+import { maskCurrency, parseCurrency } from "@/lib/masks";
 import { ptBR } from "date-fns/locale";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
