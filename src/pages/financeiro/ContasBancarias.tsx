@@ -55,7 +55,6 @@ const EMPTY_FORM = {
   account_number: "",
   account_digit: "",
   account_name: "",
-  initial_balance: "",
   active: true,
   external_provider: "",
   external_account_id: "",
