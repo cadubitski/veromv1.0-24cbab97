@@ -821,6 +821,8 @@ export default function GestaoContratos() {
     const { error: err } = await supabase.from("rental_installments").update({
       value: newVal,
       management_fee_percent: feeP,
+      management_fee_value: feeVal,
+      repasse_value: ownerNet,
       tax_base_value: taxBase,
       irrf_value: irrfVal,
       owner_net_value: ownerNet,
