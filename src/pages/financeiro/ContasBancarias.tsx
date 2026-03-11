@@ -102,6 +102,7 @@ export default function ContasBancarias() {
   const [editAccount, setEditAccount] = useState<BankAccount | null>(null);
   const [viewAccount, setViewAccount] = useState<BankAccount | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BankAccount | null>(null);
+  const [viewTab, setViewTab] = useState<"details" | "statement">("details");
 
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
