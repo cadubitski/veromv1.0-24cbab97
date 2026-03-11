@@ -187,7 +187,7 @@ export default function ContasBancarias() {
     setDialogOpen(true);
   };
 
-  const openView = (a: BankAccount) => { setViewAccount(a); setViewDialogOpen(true); };
+  const openView = (a: BankAccount) => { setViewAccount(a); setViewTab("details"); setViewDialogOpen(true); };
   const openDelete = (a: BankAccount) => { setDeleteTarget(a); setDeleteDialogOpen(true); };
 
   const f = (key: keyof typeof form, value: string | boolean) =>
