@@ -270,6 +270,7 @@ export default function MovimentacaoBancaria() {
   // ── Excel ────────────────────────────────────────────────────────────────────
   const handleExcel = () => {
     const rows = filtered.map((t) => ({
+      "Nº Documento": t.document_number,
       "Data": fmtDate(t.transaction_date),
       "Conta": t.bank_accounts?.account_name ?? "",
       "Tipo": t.type === "credit" ? "Entrada" : "Saída",
