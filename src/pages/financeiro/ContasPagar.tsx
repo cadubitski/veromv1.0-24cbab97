@@ -540,10 +540,7 @@ export default function ContasPagar() {
                   {filtered.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="w-px whitespace-nowrap">
-                        <StatusDot
-                          color={statusColor(item.status)}
-                          label={statusLabel(item.status)}
-                        />
+                        <StatusDot status={item.status} />
                       </TableCell>
                       {visibleCols.has("document_number") && (
                         <TableCell className="font-mono text-xs">{item.document_number}</TableCell>
