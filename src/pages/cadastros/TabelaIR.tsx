@@ -181,6 +181,8 @@ export default function TabelaIR() {
         }
         const ownerNet = taxBase - irrfVal;
         return supabase.from("rental_installments").update({
+          management_fee_value: feeVal,
+          repasse_value: ownerNet,
           tax_base_value: taxBase,
           irrf_value: irrfVal,
           owner_net_value: ownerNet,

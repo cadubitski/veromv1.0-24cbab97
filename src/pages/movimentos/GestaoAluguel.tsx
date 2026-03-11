@@ -569,12 +569,16 @@ export default function GestaoContratos() {
       let contractId: string;
       if (editContract) {
         const oldDueDay = editContract.due_day;
+        const feeValEdit = rentVal * feeP / 100;
+        const repasseValEdit = rentVal - feeValEdit;
         const { error: err } = await supabase.from("rental_contracts").update({
           code: form.code.trim() || null,
           tenant_id: form.tenant_id, property_id: form.property_id,
           rent_value: rentVal, start_date: form.start_date,
           due_day: dueDay, duration_months: durationMonths,
           management_fee_percent: feeP,
+          management_fee_value: feeValEdit,
+          repasse_value: repasseValEdit,
           updated_at: new Date().toISOString(),
         }).eq("id", editContract.id);
         if (err) throw err;
@@ -606,6 +610,8 @@ export default function GestaoContratos() {
           .eq("status", "ativo");
         if ((taken ?? 0) > 0) { setFormError("Este imóvel já possui um contrato ativo."); setSaving(false); return; }
 
+        const feeValContract = rentVal * feeP / 100;
+        const repasseValContract = rentVal - feeValContract;
         const { data, error: err } = await supabase.from("rental_contracts").insert({
           company_id: company.id,
           code: form.code.trim() || null,
@@ -616,6 +622,8 @@ export default function GestaoContratos() {
           due_day: dueDay,
           duration_months: durationMonths,
           management_fee_percent: feeP,
+          management_fee_value: feeValContract,
+          repasse_value: repasseValContract,
           status: "ativo",
         }).select("id").single();
         if (err) throw err;
@@ -692,6 +700,8 @@ export default function GestaoContratos() {
             due_date: format(dueDate, "yyyy-MM-dd"),
             value: rentVal,
             management_fee_percent: feeP,
+            management_fee_value: ir.feeVal,
+            repasse_value: ir.repasseVal,
             tax_base_value: ir.taxBase,
             irrf_value: ir.irrfVal,
             owner_net_value: ir.ownerNet,
@@ -815,6 +825,8 @@ export default function GestaoContratos() {
     const { error: err } = await supabase.from("rental_installments").update({
       value: newVal,
       management_fee_percent: feeP,
+      management_fee_value: feeVal,
+      repasse_value: ownerNet,
       tax_base_value: taxBase,
       irrf_value: irrfVal,
       owner_net_value: ownerNet,
