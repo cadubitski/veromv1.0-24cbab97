@@ -388,6 +388,9 @@ export default function MovimentacaoBancaria() {
           <Table>
             <TableHeader>
               <TableRow className="border-border/40">
+                <TableHead className={thClass} onClick={() => handleSort("document_number")}>
+                  Nº Documento <SortIcon col="document_number" />
+                </TableHead>
                 <TableHead className={thClass} onClick={() => handleSort("transaction_date")}>
                   Data <SortIcon col="transaction_date" />
                 </TableHead>
