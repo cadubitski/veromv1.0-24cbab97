@@ -65,6 +65,7 @@ export interface ActionItem {
   onClick: () => void;
   variant?: "default" | "destructive";
   disabled?: boolean;
+  tooltip?: string;
 }
 
 interface ActionGearProps {
