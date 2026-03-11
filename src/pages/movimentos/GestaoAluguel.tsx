@@ -73,6 +73,8 @@ interface Installment {
   ir_deduction: number | null;
   status: string;
   paid_at: string | null;
+  financial_status: string;
+  accounts_receivable_id: string | null;
 }
 
 type SortKey = "code" | "tenant_name" | "property_code" | "rent_value" | "start_date" | "due_day" | "status";
