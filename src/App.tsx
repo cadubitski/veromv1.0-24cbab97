@@ -19,6 +19,8 @@ import Repasse from "./pages/relatorios/Repasse";
 import ModelosDocumentos from "./pages/documentos/ModelosDocumentos";
 import EditorModelo from "./pages/documentos/EditorModelo";
 import TabelaIR from "./pages/cadastros/TabelaIR";
+import Dimob from "./pages/relatorios/Dimob";
+import InformeRendimentos from "./pages/relatorios/InformeRendimentos";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -50,6 +52,8 @@ const App = () => (
             <Route path="/cadastros/tabela-ir" element={<ProtectedRoute><TabelaIR /></ProtectedRoute>} />
             <Route path="/movimentos/gestao-aluguel" element={<ProtectedRoute><GestaoAluguel /></ProtectedRoute>} />
             <Route path="/relatorios/repasse" element={<ProtectedRoute><Repasse /></ProtectedRoute>} />
+            <Route path="/relatorios/dimob" element={<ProtectedRoute><Dimob /></ProtectedRoute>} />
+            <Route path="/relatorios/informe-rendimentos" element={<ProtectedRoute><InformeRendimentos /></ProtectedRoute>} />
             <Route path="/documentos/modelos" element={<ProtectedRoute><ModelosDocumentos /></ProtectedRoute>} />
             <Route path="/documentos/modelos/:id" element={<ProtectedRoute><EditorModelo /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
