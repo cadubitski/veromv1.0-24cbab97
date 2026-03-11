@@ -848,6 +848,37 @@ export default function GestaoContratos() {
     setSavingInstValue(null);
   };
 
+  const exportInstallmentsExcel = () => {
+    if (!managementContract || installments.length === 0) return;
+    const exportData = installments.map((inst) => {
+      const feeP = inst.management_fee_percent ?? 0;
+      const feeV = inst.management_fee_value ?? (inst.value * feeP / 100);
+      const taxBase = inst.tax_base_value ?? (inst.value - feeV);
+      const irrfV = inst.irrf_value ?? 0;
+      const ownerNet = inst.owner_net_value ?? inst.repasse_value ?? (taxBase - irrfV);
+      const resolvedStatus = resolveInstStatus(inst);
+      return {
+        "Competência": inst.competence,
+        "Vencimento": format(parseISO(inst.due_date + "T00:00:00"), "dd/MM/yyyy"),
+        "Status": INST_LABELS[resolvedStatus] ?? inst.status,
+        "Data Pagamento": inst.paid_at ? format(parseISO(inst.paid_at + "T00:00:00"), "dd/MM/yyyy") : "",
+        "Valor do aluguel (R$)": inst.value,
+        "Tx. Adm (%)": feeP,
+        "Valor Tx. Adm (R$)": feeV,
+        "Base IR (R$)": taxBase,
+        "Alíquota IR (%)": inst.ir_rate ?? 0,
+        "Dedução IR (R$)": inst.ir_deduction ?? 0,
+        "Valor IR / IRRF (R$)": irrfV,
+        "Repasse ao proprietário (R$)": ownerNet,
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Parcelas");
+    const filename = `parcelas_${managementContract.code ?? managementContract.id.slice(0, 8)}_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
+    XLSX.writeFile(wb, filename);
+  };
+
   const tenantItems = tenants.map((t) => ({ id: t.id, label: t.full_name }));
   const propertyItems = properties.map((p) => ({
     id: p.id,
