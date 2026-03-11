@@ -22,6 +22,7 @@ import TabelaIR from "./pages/cadastros/TabelaIR";
 import Dimob from "./pages/relatorios/Dimob";
 import InformeRendimentos from "./pages/relatorios/InformeRendimentos";
 import ContasBancarias from "./pages/financeiro/ContasBancarias";
+import MovimentacaoBancaria from "./pages/financeiro/MovimentacaoBancaria";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
