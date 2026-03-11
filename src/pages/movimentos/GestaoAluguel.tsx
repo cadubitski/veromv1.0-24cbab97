@@ -1175,6 +1175,12 @@ export default function GestaoContratos() {
               </Button>
             </div>
           </DialogHeader>
+          {(managementContract?.status === "encerrado" || managementContract?.status === "cancelado") && (
+            <div className="shrink-0 mx-0 mb-2 rounded-lg bg-muted/50 border border-border/50 px-4 py-2.5 text-sm text-muted-foreground flex items-center gap-2">
+              <Eye className="h-4 w-4 shrink-0" />
+              Contrato <strong className="text-foreground">{managementContract.status === "encerrado" ? "encerrado" : "cancelado"}</strong> — somente visualização. Não é possível registrar pagamentos ou editar valores.
+            </div>
+          )}
           <div className="overflow-auto flex-1">
             {loadingInst ? (
               <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
@@ -1206,8 +1212,9 @@ export default function GestaoContratos() {
                     const taxBase = inst.tax_base_value ?? (inst.value - feeV);
                     const irrfV = inst.irrf_value ?? 0;
                     const ownerNet = inst.owner_net_value ?? inst.repasse_value ?? (taxBase - irrfV);
+                    const contractReadOnly = managementContract?.status === "encerrado" || managementContract?.status === "cancelado";
                     return (
-                      <TableRow key={inst.id} className="border-border/40">
+                      <TableRow key={inst.id} className={`border-border/40 ${contractReadOnly ? "opacity-80" : ""}`}>
                         {/* Competência */}
                         <TableCell className="font-mono text-sm whitespace-nowrap">{inst.competence}</TableCell>
 
@@ -1223,6 +1230,8 @@ export default function GestaoContratos() {
                         <TableCell className="whitespace-nowrap">
                           {inst.status === "pago" ? (
                             <span className="text-sm text-muted-foreground whitespace-nowrap">{inst.paid_at ? format(parseISO(inst.paid_at + "T00:00:00"), "dd/MM/yyyy") : "—"}</span>
+                          ) : contractReadOnly ? (
+                            <span className="text-sm text-muted-foreground">—</span>
                           ) : (
                             <Input
                               type="date"
@@ -1235,7 +1244,7 @@ export default function GestaoContratos() {
 
                         {/* Valor do aluguel */}
                         <TableCell className="font-mono text-sm text-right whitespace-nowrap">
-                          {inst.status !== "pago" && isEditing ? (
+                          {!contractReadOnly && inst.status !== "pago" && isEditing ? (
                             <div className="flex items-center gap-1 justify-end">
                               <Input
                                 className="h-7 text-xs w-24"
@@ -1250,9 +1259,9 @@ export default function GestaoContratos() {
                             </div>
                           ) : (
                             <span
-                              className={inst.status !== "pago" ? "cursor-pointer hover:text-primary transition-colors" : ""}
-                              title={inst.status !== "pago" ? "Clique para editar" : ""}
-                              onClick={() => inst.status !== "pago" && setEditingInstValue((p) => ({ ...p, [inst.id]: formatMoney(inst.value) }))}
+                              className={!contractReadOnly && inst.status !== "pago" ? "cursor-pointer hover:text-primary transition-colors" : ""}
+                              title={!contractReadOnly && inst.status !== "pago" ? "Clique para editar" : ""}
+                              onClick={() => !contractReadOnly && inst.status !== "pago" && setEditingInstValue((p) => ({ ...p, [inst.id]: formatMoney(inst.value) }))}
                             >
                               R$ {formatMoney(inst.value)}
                             </span>
@@ -1314,7 +1323,7 @@ export default function GestaoContratos() {
 
                         {/* Ação */}
                         <TableCell className="text-right w-px whitespace-nowrap">
-                          {inst.status !== "pago" && (
+                          {!contractReadOnly && inst.status !== "pago" && (
                             <Button
                               size="sm"
                               variant="outline"
