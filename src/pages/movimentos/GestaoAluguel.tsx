@@ -308,10 +308,17 @@ export default function GestaoContratos() {
   const [managementContract, setManagementContract] = useState<Contract | null>(null);
   const [installments, setInstallments] = useState<Installment[]>([]);
   const [loadingInst, setLoadingInst] = useState(false);
-  const [paidDateInputs, setPaidDateInputs] = useState<Record<string, string>>({});
-  const [markingPaid, setMarkingPaid] = useState<string | null>(null);
   const [editingInstValue, setEditingInstValue] = useState<Record<string, string>>({});
   const [savingInstValue, setSavingInstValue] = useState<string | null>(null);
+
+  // Generate accounts receivable dialog
+  const [generateCROpen, setGenerateCROpen] = useState(false);
+  const [generatingCR, setGeneratingCR] = useState(false);
+
+  // Reopen installments dialog
+  const [reopenInstOpen, setReopenInstOpen] = useState(false);
+  const [reopeningInst, setReopeningInst] = useState(false);
+
 
   // Print / template
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
