@@ -426,6 +426,9 @@ export default function MovimentacaoBancaria() {
               ) : (
                 filtered.map((t) => (
                   <TableRow key={t.id} className="border-border/40 hover:bg-muted/30 transition-colors">
+                    <TableCell className="font-mono text-xs whitespace-nowrap">
+                      {t.document_number}
+                    </TableCell>
                     <TableCell className="font-mono text-sm whitespace-nowrap">
                       {fmtDate(t.transaction_date)}
                     </TableCell>
@@ -446,7 +449,7 @@ export default function MovimentacaoBancaria() {
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="text-sm max-w-[220px] truncate" title={t.description}>
+                    <TableCell className="text-sm max-w-[200px] truncate" title={t.description}>
                       {t.description}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
@@ -464,6 +467,10 @@ export default function MovimentacaoBancaria() {
                             icon: <Trash2 className="h-3.5 w-3.5" />,
                             onClick: () => openDelete(t),
                             variant: "destructive" as const,
+                            disabled: t.origin_type !== "manual",
+                            tooltip: t.origin_type !== "manual"
+                              ? "Exclusão não permitida: movimentação originada de baixa de título financeiro."
+                              : undefined,
                           },
                         ]}
                       />
