@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { maskCurrency, parseCurrency } from "@/lib/masks";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/DashboardLayout";
