@@ -32,12 +32,9 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Dynamically fetch allowed tables from information_schema
+    // Dynamically fetch allowed tables via security definer function (avoids information_schema schema prefix issue)
     const { data: tablesData, error: tablesError } = await supabaseAdmin
-      .from("information_schema.tables")
-      .select("table_name")
-      .eq("table_schema", "public")
-      .eq("table_type", "BASE TABLE");
+      .rpc("get_public_tables");
 
     if (tablesError) {
       return new Response(
