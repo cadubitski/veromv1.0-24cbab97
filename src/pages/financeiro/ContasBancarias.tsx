@@ -351,16 +351,6 @@ export default function ContasBancarias() {
           </Button>
         </div>
 
-        {/* Legenda */}
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-primary inline-block" /> Ativa
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-muted-foreground/40 inline-block" /> Inativa
-          </span>
-        </div>
-
         {/* Table */}
         <div className="card-premium rounded-xl overflow-hidden">
           <Table>
