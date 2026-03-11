@@ -457,6 +457,7 @@ export default function ContasReceber() {
             <p className="text-muted-foreground mt-1">Gerencie os títulos a receber e registre pagamentos</p>
           </div>
           <div className="flex gap-2">
+            <ColumnSelector columns={ALL_COLUMNS} visible={visibleCols} onChange={setVisibleCols} />
             <Button variant="outline" onClick={handleExport} className="gap-2">
               <FileDown className="h-4 w-4" /> Exportar Excel
             </Button>
