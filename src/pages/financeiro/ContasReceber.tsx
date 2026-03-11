@@ -574,11 +574,6 @@ export default function ContasReceber() {
                                 icon: <RotateCcw className="h-4 w-4" />,
                                 onClick: () => setCancelBaixaItem(item),
                               }] : []),
-                              {
-                                label: "Exportar para Excel",
-                                icon: <FileDown className="h-4 w-4" />,
-                                onClick: handleExport,
-                              },
                               ...(item.status !== "paid" ? [{
                                 label: "Excluir",
                                 icon: <Trash2 className="h-4 w-4" />,
