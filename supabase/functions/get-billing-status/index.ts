@@ -60,7 +60,25 @@ Deno.serve(async (req) => {
     }
 
     const data = await res.json();
-    const subscription = Array.isArray(data) && data.length > 0 ? data[0] : (data ?? null);
+    console.log("billing-core raw response:", JSON.stringify(data));
+
+    // billing-core pode retornar objeto direto, array, ou wrapper com 'subscription'
+    let subscription: Record<string, unknown> | null = null;
+    if (Array.isArray(data)) {
+      subscription = data.length > 0 ? data[0] : null;
+    } else if (data && typeof data === "object") {
+      // pode ser { subscription: {...} } ou o objeto direto com status
+      if ("subscription" in data) {
+        subscription = (data as Record<string, unknown>).subscription as Record<string, unknown>;
+      } else if ("status" in data) {
+        subscription = data as Record<string, unknown>;
+      } else if ("data" in data && Array.isArray((data as Record<string, unknown>).data)) {
+        const arr = (data as Record<string, unknown>).data as unknown[];
+        subscription = arr.length > 0 ? arr[0] as Record<string, unknown> : null;
+      }
+    }
+
+    console.log("resolved subscription:", JSON.stringify(subscription));
 
     return new Response(
       JSON.stringify({
