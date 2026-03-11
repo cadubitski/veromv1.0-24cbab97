@@ -24,13 +24,14 @@ import {
   Tooltip, TooltipContent, TooltipTrigger, TooltipProvider,
 } from "@/components/ui/tooltip";
 import {
-  Loader2, Plus, Search, Pencil, Trash2, ChevronDown, ChevronUp, FileText, CheckCircle2, Eye, Filter, Printer,
+  Loader2, Plus, Search, Pencil, Trash2, ChevronDown, ChevronUp, FileText, CheckCircle2, Eye, Filter, Printer, Download,
 } from "lucide-react";
 import ColumnSelector, { ColumnDef } from "@/components/ColumnSelector";
 import { StatusDot, ActionGear } from "@/components/TableActions";
 import { toast } from "sonner";
 import { maskCurrency, parseCurrency } from "@/lib/masks";
 import { format, addMonths, setDate, parseISO } from "date-fns";
+import * as XLSX from "xlsx";
 
 interface Tenant { id: string; full_name: string; }
 interface Property { id: string; code: string; address: string | null; client_name?: string; }
