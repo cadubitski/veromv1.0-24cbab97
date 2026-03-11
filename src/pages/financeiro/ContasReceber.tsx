@@ -2,13 +2,13 @@ import { useEffect, useState, useCallback } from "react";
 import {
   Loader2, Plus, Search, Eye, CheckCircle2,
   Pencil, Trash2, ArrowDownCircle, RotateCcw, Filter,
-  Receipt, TrendingUp, Clock, Ban
+  Receipt, TrendingUp, Clock, Ban, FileDown
 } from "lucide-react";
 import { StatusDot, ActionGear } from "@/components/TableActions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -32,6 +32,7 @@ import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { maskCurrency, parseCurrency } from "@/lib/masks";
 import { ptBR } from "date-fns/locale";
+import * as XLSX from "xlsx";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,7 @@ interface Receivable {
   client_id: string | null;
   contract_id: string | null;
   installment_id: string | null;
+  document_number: string;
   description: string;
   issue_date: string;
   due_date: string;
@@ -89,6 +91,12 @@ const statusBadge = (s: string) => {
   return <Badge variant="outline" className="text-amber-600 border-amber-500/30 bg-amber-500/10">Pendente</Badge>;
 };
 
+const statusLabel = (s: string) => {
+  if (s === "paid") return "Recebido";
+  if (s === "cancelled") return "Cancelado";
+  return "Pendente";
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function ContasReceber() {
@@ -116,6 +124,7 @@ export default function ContasReceber() {
 
   // Forms
   const emptyForm = {
+    document_number: "",
     client_id: "",
     description: "",
     issue_date: format(new Date(), "yyyy-MM-dd"),
@@ -176,15 +185,34 @@ export default function ContasReceber() {
     else setInstallDetail(null);
   };
 
+  // ── Validate document_number uniqueness ────────────────────────────────────
+  const validateDocNumber = async (docNumber: string, excludeId?: string): Promise<boolean> => {
+    let query = supabase
+      .from("accounts_receivable")
+      .select("id")
+      .eq("company_id", company!.id)
+      .eq("document_number", docNumber.trim());
+    if (excludeId) query = query.neq("id", excludeId);
+    const { data } = await query.maybeSingle();
+    return !data; // true = valid (no duplicate)
+  };
+
   // ── Create ──────────────────────────────────────────────────────────────────
   const handleCreate = async () => {
-    if (!form.client_id || !form.description || !form.issue_date || !form.due_date || !form.amount) {
+    if (!form.document_number.trim() || !form.client_id || !form.description || !form.issue_date || !form.due_date || !form.amount) {
       toast.error("Preencha todos os campos obrigatórios.");
       return;
     }
     setSaving(true);
+    const isUnique = await validateDocNumber(form.document_number);
+    if (!isUnique) {
+      toast.error("O número do documento já está sendo utilizado em outro título.");
+      setSaving(false);
+      return;
+    }
     const { error } = await supabase.from("accounts_receivable").insert({
       company_id: company!.id,
+      document_number: form.document_number.trim(),
       client_id: form.client_id,
       description: form.description,
       issue_date: form.issue_date,
@@ -204,10 +232,21 @@ export default function ContasReceber() {
   // ── Edit ────────────────────────────────────────────────────────────────────
   const handleEdit = async () => {
     if (!editItem) return;
+    if (!form.document_number.trim()) {
+      toast.error("O número do documento é obrigatório.");
+      return;
+    }
     setSaving(true);
+    const isUnique = await validateDocNumber(form.document_number, editItem.id);
+    if (!isUnique) {
+      toast.error("O número do documento já está sendo utilizado em outro título.");
+      setSaving(false);
+      return;
+    }
     const { error } = await supabase
       .from("accounts_receivable")
       .update({
+        document_number: form.document_number.trim(),
         client_id: form.client_id || null,
         description: form.description,
         issue_date: form.issue_date,
@@ -228,6 +267,7 @@ export default function ContasReceber() {
       return;
     }
     setForm({
+      document_number: item.document_number,
       client_id: item.client_id ?? "",
       description: item.description,
       issue_date: item.issue_date,
@@ -245,7 +285,6 @@ export default function ContasReceber() {
     }
     setSavingBaixa(true);
     try {
-      // 1. Create bank transaction
       const { data: txData, error: txErr } = await supabase
         .from("bank_transactions")
         .insert({
@@ -263,7 +302,6 @@ export default function ContasReceber() {
 
       if (txErr || !txData) throw new Error(txErr?.message ?? "Erro ao criar movimentação");
 
-      // 2. Update receivable
       const { error: updErr } = await supabase
         .from("accounts_receivable")
         .update({
@@ -292,7 +330,6 @@ export default function ContasReceber() {
     if (!cancelBaixaItem) return;
     setSavingBaixa(true);
     try {
-      // 1. Delete bank transaction (trigger reverts balance)
       if (cancelBaixaItem.bank_transaction_id) {
         const { error: delErr } = await supabase
           .from("bank_transactions")
@@ -301,7 +338,6 @@ export default function ContasReceber() {
         if (delErr) throw new Error(delErr.message);
       }
 
-      // 2. Revert receivable
       const { error: updErr } = await supabase
         .from("accounts_receivable")
         .update({
@@ -334,6 +370,25 @@ export default function ContasReceber() {
     fetchData();
   };
 
+  // ── Export to Excel ─────────────────────────────────────────────────────────
+  const handleExport = () => {
+    const rows = filtered.map((i) => ({
+      "Nº Documento": i.document_number,
+      "Locatário": i.tenant_name ?? "—",
+      "Descrição": i.description,
+      "Emissão": fmtDate(i.issue_date),
+      "Vencimento": fmtDate(i.due_date),
+      "Valor (R$)": i.amount,
+      "Origem": i.source_type === "manual" ? "Manual" : "Contrato",
+      "Status": statusLabel(i.status),
+      "Recebido em": fmtDate(i.paid_at),
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Contas a Receber");
+    XLSX.writeFile(wb, `contas_receber_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+  };
+
   // ── Summary Cards ──────────────────────────────────────────────────────────
   const total = items.reduce((s, i) => s + i.amount, 0);
   const totalPending = items.filter((i) => i.status === "pending").reduce((s, i) => s + i.amount, 0);
@@ -344,7 +399,8 @@ export default function ContasReceber() {
   const filtered = items.filter((i) => {
     const matchSearch =
       i.description.toLowerCase().includes(search.toLowerCase()) ||
-      (i.tenant_name ?? "").toLowerCase().includes(search.toLowerCase());
+      (i.tenant_name ?? "").toLowerCase().includes(search.toLowerCase()) ||
+      i.document_number.toLowerCase().includes(search.toLowerCase());
     const matchStatus = filterStatus === "all" || i.status === filterStatus;
     return matchSearch && matchStatus;
   });
@@ -433,7 +489,7 @@ export default function ContasReceber() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por descrição ou locatário..."
+                  placeholder="Buscar por nº documento, descrição ou locatário..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-9"
@@ -468,6 +524,7 @@ export default function ContasReceber() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Nº Documento</TableHead>
                       <TableHead>Locatário</TableHead>
                       <TableHead>Descrição</TableHead>
                       <TableHead>Vencimento</TableHead>
@@ -480,8 +537,9 @@ export default function ContasReceber() {
                   <TableBody>
                     {filtered.map((item) => (
                       <TableRow key={item.id}>
+                        <TableCell className="font-mono text-sm font-medium">{item.document_number}</TableCell>
                         <TableCell className="font-medium">{item.tenant_name ?? "—"}</TableCell>
-                        <TableCell className="max-w-[200px] truncate text-muted-foreground">{item.description}</TableCell>
+                        <TableCell className="max-w-[180px] truncate text-muted-foreground">{item.description}</TableCell>
                         <TableCell className="whitespace-nowrap">{fmtDate(item.due_date)}</TableCell>
                         <TableCell className="whitespace-nowrap font-mono">{fmt(item.amount)}</TableCell>
                         <TableCell>
@@ -516,6 +574,11 @@ export default function ContasReceber() {
                                 icon: <RotateCcw className="h-4 w-4" />,
                                 onClick: () => setCancelBaixaItem(item),
                               }] : []),
+                              {
+                                label: "Exportar para Excel",
+                                icon: <FileDown className="h-4 w-4" />,
+                                onClick: handleExport,
+                              },
                               ...(item.status !== "paid" ? [{
                                 label: "Excluir",
                                 icon: <Trash2 className="h-4 w-4" />,
@@ -543,6 +606,14 @@ export default function ContasReceber() {
             <DialogDescription>Inclua um lançamento manual de contas a receber.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Número do Documento *</Label>
+              <Input
+                value={form.document_number}
+                onChange={(e) => setForm((f) => ({ ...f, document_number: e.target.value }))}
+                placeholder="Ex: BOL-2024-001, PIX-123..."
+              />
+            </div>
             <div className="space-y-2">
               <Label>Locatário *</Label>
               <Select value={form.client_id} onValueChange={(v) => setForm((f) => ({ ...f, client_id: v }))}>
@@ -595,6 +666,14 @@ export default function ContasReceber() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
+              <Label>Número do Documento *</Label>
+              <Input
+                value={form.document_number}
+                onChange={(e) => setForm((f) => ({ ...f, document_number: e.target.value }))}
+                placeholder="Ex: BOL-2024-001"
+              />
+            </div>
+            <div className="space-y-2">
               <Label>Locatário</Label>
               <Select value={form.client_id} onValueChange={(v) => setForm((f) => ({ ...f, client_id: v }))}>
                 <SelectTrigger><SelectValue placeholder="Selecione o locatário" /></SelectTrigger>
@@ -646,6 +725,10 @@ export default function ContasReceber() {
           {viewItem && (
             <div className="space-y-4 py-2">
               <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground">Número do Documento</p>
+                  <p className="font-mono font-semibold">{viewItem.document_number}</p>
+                </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Locatário</p>
                   <p className="font-medium">{viewItem.tenant_name ?? "—"}</p>

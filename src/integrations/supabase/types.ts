@@ -24,6 +24,7 @@ export type Database = {
           contract_id: string | null
           created_at: string
           description: string
+          document_number: string
           due_date: string
           id: string
           installment_id: string | null
@@ -42,6 +43,7 @@ export type Database = {
           contract_id?: string | null
           created_at?: string
           description: string
+          document_number: string
           due_date: string
           id?: string
           installment_id?: string | null
@@ -60,6 +62,7 @@ export type Database = {
           contract_id?: string | null
           created_at?: string
           description?: string
+          document_number?: string
           due_date?: string
           id?: string
           installment_id?: string | null
