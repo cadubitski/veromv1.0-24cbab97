@@ -1120,35 +1120,36 @@ export default function GestaoContratos() {
 
       {/* Management Dialog (installments) */}
       <Dialog open={managementOpen} onOpenChange={setManagementOpen}>
-        <DialogContent className="sm:max-w-3xl flex flex-col max-h-[90vh]">
+        <DialogContent className="max-w-[98vw] w-full flex flex-col max-h-[90vh]">
           <DialogHeader className="shrink-0">
             <DialogTitle>Cronograma de pagamentos</DialogTitle>
             <DialogDescription>
-              {managementContract?.tenants?.full_name} — R$ {managementContract ? formatMoney(managementContract.rent_value) : ""}/mês
+              Inq {managementContract?.tenants?.full_name} — R$ {managementContract ? formatMoney(managementContract.rent_value) : ""}/mês
               {managementContract && managementContract.management_fee_percent > 0 && (
                 <> · Taxa: {managementContract.management_fee_percent}% · Repasse: R$ {formatMoney(managementContract.repasse_value)}</>
               )}
             </DialogDescription>
           </DialogHeader>
-          <div className="overflow-y-auto flex-1">
+          <div className="overflow-auto flex-1">
             {loadingInst ? (
               <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow className="border-border/40">
-                    <TableHead>Competência</TableHead>
-                    <TableHead>Vencimento</TableHead>
-                    <TableHead>Valor</TableHead>
-                    <TableHead className="hidden md:table-cell">Tx. Admin</TableHead>
-                    <TableHead className="hidden lg:table-cell">Base IR</TableHead>
-                    <TableHead className="hidden lg:table-cell whitespace-nowrap">Alíquota IR</TableHead>
-                    <TableHead className="hidden lg:table-cell whitespace-nowrap">Dedução IR</TableHead>
-                    <TableHead className="hidden lg:table-cell">IRRF</TableHead>
-                    <TableHead className="hidden md:table-cell">Repasse Líquido</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Pagamento</TableHead>
-                    <TableHead className="text-right">Ação</TableHead>
+                    <TableHead className="whitespace-nowrap">Competência</TableHead>
+                    <TableHead className="whitespace-nowrap">Vencimento</TableHead>
+                    <TableHead className="whitespace-nowrap w-px">Status</TableHead>
+                    <TableHead className="whitespace-nowrap">Pagamento</TableHead>
+                    <TableHead className="whitespace-nowrap text-right">Valor do aluguel</TableHead>
+                    <TableHead className="whitespace-nowrap text-right">Tx. Adm %</TableHead>
+                    <TableHead className="whitespace-nowrap text-right">Valor Tx. Adm</TableHead>
+                    <TableHead className="whitespace-nowrap text-right">Base IR</TableHead>
+                    <TableHead className="whitespace-nowrap text-right">Alíquota IR</TableHead>
+                    <TableHead className="whitespace-nowrap text-right">Dedução IR</TableHead>
+                    <TableHead className="whitespace-nowrap text-right">Valor IR</TableHead>
+                    <TableHead className="whitespace-nowrap text-right font-semibold">Repasse ao proprietário</TableHead>
+                    <TableHead className="text-right w-px">Ação</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1162,11 +1163,35 @@ export default function GestaoContratos() {
                     const ownerNet = inst.owner_net_value ?? inst.repasse_value ?? (taxBase - irrfV);
                     return (
                       <TableRow key={inst.id} className="border-border/40">
-                        <TableCell className="font-mono text-sm">{inst.competence}</TableCell>
+                        {/* Competência */}
+                        <TableCell className="font-mono text-sm whitespace-nowrap">{inst.competence}</TableCell>
+
+                        {/* Vencimento */}
                         <TableCell className="text-sm whitespace-nowrap">{format(parseISO(inst.due_date + "T00:00:00"), "dd/MM/yyyy")}</TableCell>
-                        <TableCell className="font-mono text-sm">
+
+                        {/* Status */}
+                        <TableCell className="w-px whitespace-nowrap">
+                          <StatusDot status={resolvedStatus} />
+                        </TableCell>
+
+                        {/* Pagamento */}
+                        <TableCell className="whitespace-nowrap">
+                          {inst.status === "pago" ? (
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">{inst.paid_at ? format(parseISO(inst.paid_at + "T00:00:00"), "dd/MM/yyyy") : "—"}</span>
+                          ) : (
+                            <Input
+                              type="date"
+                              className="h-7 text-xs w-36"
+                              value={paidDateInputs[inst.id] ?? ""}
+                              onChange={(e) => setPaidDateInputs((p) => ({ ...p, [inst.id]: e.target.value }))}
+                            />
+                          )}
+                        </TableCell>
+
+                        {/* Valor do aluguel */}
+                        <TableCell className="font-mono text-sm text-right whitespace-nowrap">
                           {inst.status !== "pago" && isEditing ? (
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 justify-end">
                               <Input
                                 className="h-7 text-xs w-24"
                                 value={editingInstValue[inst.id]}
@@ -1188,52 +1213,62 @@ export default function GestaoContratos() {
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">R$ {formatMoney(feeV)}</TableCell>
-                        <TableCell className="hidden lg:table-cell font-mono text-xs text-muted-foreground">R$ {formatMoney(taxBase)}</TableCell>
-                         <TableCell className="hidden lg:table-cell font-mono text-xs text-muted-foreground">
-                           {inst.ir_rate != null ? `${inst.ir_rate.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 })}%` : <span className="text-muted-foreground">—</span>}
-                         </TableCell>
-                         <TableCell className="hidden lg:table-cell font-mono text-xs text-muted-foreground">
-                           {inst.ir_deduction != null ? `R$ ${formatMoney(inst.ir_deduction)}` : <span className="text-muted-foreground">—</span>}
-                         </TableCell>
-                         <TableCell className="hidden lg:table-cell font-mono text-xs">
-                           <TooltipProvider>
-                             <Tooltip>
-                               <TooltipTrigger asChild>
-                                 <span className={irrfV > 0 ? "text-destructive/80 cursor-help underline decoration-dotted" : "text-muted-foreground cursor-default"}>
-                                   {irrfV > 0 ? `R$ ${formatMoney(irrfV)}` : "—"}
-                                 </span>
-                               </TooltipTrigger>
-                               <TooltipContent side="top" className="max-w-[260px] text-xs space-y-1 p-3">
-                                 <p className="font-semibold text-foreground mb-1">Detalhamento do IRRF</p>
-                                 <p>Base IR: <span className="font-mono">R$ {formatMoney(taxBase)}</span></p>
-                                 <p>Alíquota: <span className="font-mono">{inst.ir_rate != null ? `${inst.ir_rate}%` : "—"}</span></p>
-                                 <p>Dedução: <span className="font-mono">{inst.ir_deduction != null ? `R$ ${formatMoney(inst.ir_deduction)}` : "—"}</span></p>
-                                 <p className="text-muted-foreground pt-1 border-t border-border/40">
-                                   ({formatMoney(taxBase)} × {inst.ir_rate ?? 0}%) − R$ {formatMoney(inst.ir_deduction ?? 0)}
-                                 </p>
-                                 <p className="font-semibold text-foreground">= R$ {formatMoney(irrfV)}</p>
-                               </TooltipContent>
-                             </Tooltip>
-                           </TooltipProvider>
-                         </TableCell>
-                         <TableCell className="hidden md:table-cell font-mono text-xs font-medium">R$ {formatMoney(ownerNet)}</TableCell>
-                        <TableCell>
-                          <StatusDot status={resolvedStatus} />
+
+                        {/* Tx. Adm % */}
+                        <TableCell className="font-mono text-xs text-muted-foreground text-right whitespace-nowrap">
+                          {feeP.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%
                         </TableCell>
-                        <TableCell>
-                          {inst.status === "pago" ? (
-                            <span className="text-sm text-muted-foreground whitespace-nowrap">{inst.paid_at ? format(parseISO(inst.paid_at + "T00:00:00"), "dd/MM/yyyy") : "—"}</span>
-                          ) : (
-                            <Input
-                              type="date"
-                              className="h-7 text-xs w-36"
-                              value={paidDateInputs[inst.id] ?? ""}
-                              onChange={(e) => setPaidDateInputs((p) => ({ ...p, [inst.id]: e.target.value }))}
-                            />
-                          )}
+
+                        {/* Valor Tx. Adm */}
+                        <TableCell className="font-mono text-xs text-muted-foreground text-right whitespace-nowrap">
+                          R$ {formatMoney(feeV)}
                         </TableCell>
-                        <TableCell className="text-right">
+
+                        {/* Base IR */}
+                        <TableCell className="font-mono text-xs text-muted-foreground text-right whitespace-nowrap">
+                          R$ {formatMoney(taxBase)}
+                        </TableCell>
+
+                        {/* Alíquota IR */}
+                        <TableCell className="font-mono text-xs text-muted-foreground text-right whitespace-nowrap">
+                          {inst.ir_rate != null ? `${inst.ir_rate.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 })}%` : <span>—</span>}
+                        </TableCell>
+
+                        {/* Dedução IR */}
+                        <TableCell className="font-mono text-xs text-muted-foreground text-right whitespace-nowrap">
+                          {inst.ir_deduction != null ? `R$ ${formatMoney(inst.ir_deduction)}` : <span>—</span>}
+                        </TableCell>
+
+                        {/* Valor IR (IRRF) com tooltip */}
+                        <TableCell className="font-mono text-xs text-right whitespace-nowrap">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className={irrfV > 0 ? "text-destructive/80 cursor-help underline decoration-dotted" : "text-muted-foreground cursor-default"}>
+                                  {irrfV > 0 ? `R$ ${formatMoney(irrfV)}` : "—"}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-[260px] text-xs space-y-1 p-3">
+                                <p className="font-semibold text-foreground mb-1">Detalhamento do IRRF</p>
+                                <p>Base IR: <span className="font-mono">R$ {formatMoney(taxBase)}</span></p>
+                                <p>Alíquota: <span className="font-mono">{inst.ir_rate != null ? `${inst.ir_rate}%` : "—"}</span></p>
+                                <p>Dedução: <span className="font-mono">{inst.ir_deduction != null ? `R$ ${formatMoney(inst.ir_deduction)}` : "—"}</span></p>
+                                <p className="text-muted-foreground pt-1 border-t border-border/40">
+                                  ({formatMoney(taxBase)} × {inst.ir_rate ?? 0}%) − R$ {formatMoney(inst.ir_deduction ?? 0)}
+                                </p>
+                                <p className="font-semibold text-foreground">= R$ {formatMoney(irrfV)}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableCell>
+
+                        {/* Repasse ao proprietário */}
+                        <TableCell className="font-mono text-sm font-semibold text-right whitespace-nowrap">
+                          R$ {formatMoney(ownerNet)}
+                        </TableCell>
+
+                        {/* Ação */}
+                        <TableCell className="text-right w-px whitespace-nowrap">
                           {inst.status !== "pago" && (
                             <Button
                               size="sm"
