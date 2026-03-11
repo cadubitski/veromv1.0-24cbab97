@@ -692,11 +692,9 @@ export default function GestaoContratos() {
             due_date: format(dueDate, "yyyy-MM-dd"),
             value: rentVal,
             management_fee_percent: feeP,
-            management_fee_value: ir.feeVal,
             tax_base_value: ir.taxBase,
             irrf_value: ir.irrfVal,
             owner_net_value: ir.ownerNet,
-            repasse_value: ir.repasseVal,
             ir_rate: ir.appliedRate,
             ir_deduction: ir.appliedDeduction,
             status: "em_aberto",
@@ -816,11 +814,10 @@ export default function GestaoContratos() {
 
     const { error: err } = await supabase.from("rental_installments").update({
       value: newVal,
-      management_fee_value: feeVal,
+      management_fee_percent: feeP,
       tax_base_value: taxBase,
       irrf_value: irrfVal,
       owner_net_value: ownerNet,
-      repasse_value: ownerNet,
       ir_rate: appliedRate,
       ir_deduction: appliedDeduction,
       updated_at: new Date().toISOString(),
@@ -829,7 +826,7 @@ export default function GestaoContratos() {
     else {
       toast.success("Valor atualizado.");
       setInstallments((prev) => prev.map((i) => i.id === inst.id ? {
-        ...i, value: newVal, management_fee_value: feeVal,
+        ...i, value: newVal, management_fee_value: newVal * feeP / 100,
         tax_base_value: taxBase, irrf_value: irrfVal, owner_net_value: ownerNet, repasse_value: ownerNet,
         ir_rate: appliedRate, ir_deduction: appliedDeduction,
       } : i));
