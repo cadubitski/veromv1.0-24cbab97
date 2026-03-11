@@ -6,18 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-api-key",
 };
 
-const ALLOWED_TABLES = [
-  "clients",
-  "companies",
-  "profiles",
-  "properties",
-  "property_types",
-  "rental_contracts",
-  "rental_installments",
-  "tenants",
-  "user_roles",
-];
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -38,21 +26,37 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { table, select = "*", filters, limit = 1000, offset = 0, order } = body;
 
-    // Validate table name (whitelist)
-    if (!table || !ALLOWED_TABLES.includes(table)) {
-      return new Response(
-        JSON.stringify({
-          error: `Tabela inválida. Tabelas disponíveis: ${ALLOWED_TABLES.join(", ")}`,
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     // Create admin client (bypasses RLS)
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+
+    // Dynamically fetch allowed tables from information_schema
+    const { data: tablesData, error: tablesError } = await supabaseAdmin
+      .from("information_schema.tables")
+      .select("table_name")
+      .eq("table_schema", "public")
+      .eq("table_type", "BASE TABLE");
+
+    if (tablesError) {
+      return new Response(
+        JSON.stringify({ error: "Erro ao verificar tabelas disponíveis: " + tablesError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const allowedTables = (tablesData ?? []).map((t: { table_name: string }) => t.table_name);
+
+    // Validate table name against dynamic allowlist
+    if (!table || !allowedTables.includes(table)) {
+      return new Response(
+        JSON.stringify({
+          error: `Tabela inválida. Tabelas disponíveis: ${allowedTables.sort().join(", ")}`,
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     let query = supabaseAdmin.from(table).select(select);
 
