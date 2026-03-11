@@ -55,7 +55,7 @@ export const userNav: NavItem[] = [
     ],
   },
   {
-    label: "Movimentos",
+    label: "Contratos",
     icon: TrendingUp,
     children: [
       { label: "Gestão de Contratos", href: "/movimentos/gestao-aluguel", permKey: "movimentos.gestao-aluguel" },
