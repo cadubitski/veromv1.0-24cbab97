@@ -308,7 +308,7 @@ export default function ContasReceber() {
           company_id: company!.id,
           bank_account_id: baixaForm.bank_account_id,
           transaction_date: baixaForm.paid_at,
-          document_number: baixaItem.document_number,
+          document_number: `${baixaItem.document_number}-R`,
           type: "credit",
           amount: baixaItem.amount,
           description: `Recebimento de título: ${baixaItem.description}`,
