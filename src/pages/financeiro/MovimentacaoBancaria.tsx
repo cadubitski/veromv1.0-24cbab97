@@ -105,6 +105,7 @@ export default function MovimentacaoBancaria() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<BankTransaction | null>(null);
+  const [viewItem, setViewItem] = useState<BankTransaction | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
