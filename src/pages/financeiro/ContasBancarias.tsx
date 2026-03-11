@@ -610,38 +610,61 @@ export default function ContasBancarias() {
 
       {/* ── View Dialog ────────────────────────────────────────────────────── */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Detalhes da conta</DialogTitle>
+        <DialogContent className="sm:max-w-2xl flex flex-col max-h-[90vh]">
+          <DialogHeader className="shrink-0">
+            <DialogTitle>
+              {viewAccount?.account_name ?? "Detalhes da conta"}
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              {viewAccount && `${viewAccount.bank_code} — ${viewAccount.bank_name}`}
+            </p>
           </DialogHeader>
+
           {viewAccount && (
-            <div className="space-y-3 text-sm">
-              <Row label="Nome" value={viewAccount.account_name} />
-              <Row label="Banco" value={`${viewAccount.bank_code} — ${viewAccount.bank_name}`} />
-              <Row
-                label="Agência"
-                value={viewAccount.agency_digit
-                  ? `${viewAccount.agency_number}-${viewAccount.agency_digit}`
-                  : viewAccount.agency_number}
-              />
-              <Row
-                label="Conta"
-                value={viewAccount.account_digit
-                  ? `${viewAccount.account_number}-${viewAccount.account_digit}`
-                  : viewAccount.account_number}
-              />
-              <Row label="Saldo inicial" value={fmt(viewAccount.initial_balance)} />
-              <Row label="Saldo atual" value={fmt(viewAccount.current_balance)} />
-              <Row label="Status" value={viewAccount.active ? "Ativa" : "Inativa"} />
-              {viewAccount.external_provider && (
-                <Row label="Provedor externo" value={viewAccount.external_provider} />
-              )}
-              {viewAccount.external_account_id && (
-                <Row label="ID externo" value={viewAccount.external_account_id} />
-              )}
-            </div>
+            <Tabs value={viewTab} onValueChange={(v) => setViewTab(v as any)} className="flex-1 flex flex-col min-h-0">
+              <TabsList className="shrink-0 w-full justify-start">
+                <TabsTrigger value="details">Detalhes</TabsTrigger>
+                <TabsTrigger value="statement" className="gap-1.5">
+                  <List className="h-3.5 w-3.5" /> Extrato
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="details" className="mt-4 space-y-3 text-sm">
+                <Row label="Nome" value={viewAccount.account_name} />
+                <Row label="Banco" value={`${viewAccount.bank_code} — ${viewAccount.bank_name}`} />
+                <Row
+                  label="Agência"
+                  value={viewAccount.agency_digit
+                    ? `${viewAccount.agency_number}-${viewAccount.agency_digit}`
+                    : viewAccount.agency_number}
+                />
+                <Row
+                  label="Conta"
+                  value={viewAccount.account_digit
+                    ? `${viewAccount.account_number}-${viewAccount.account_digit}`
+                    : viewAccount.account_number}
+                />
+                <Row label="Saldo inicial" value={fmt(viewAccount.initial_balance)} />
+                <Row label="Saldo atual" value={fmt(viewAccount.current_balance)} />
+                <Row label="Status" value={viewAccount.active ? "Ativa" : "Inativa"} />
+                {viewAccount.external_provider && (
+                  <Row label="Provedor externo" value={viewAccount.external_provider} />
+                )}
+                {viewAccount.external_account_id && (
+                  <Row label="ID externo" value={viewAccount.external_account_id} />
+                )}
+              </TabsContent>
+
+              <TabsContent value="statement" className="mt-4 flex-1 overflow-y-auto">
+                <BankAccountStatement
+                  bankAccountId={viewAccount.id}
+                  onBalanceChanged={load}
+                />
+              </TabsContent>
+            </Tabs>
           )}
-          <DialogFooter>
+
+          <DialogFooter className="shrink-0 mt-4">
             <Button variant="outline" onClick={() => setViewDialogOpen(false)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
