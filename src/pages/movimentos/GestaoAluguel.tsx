@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/tooltip";
 import {
   Loader2, Plus, Search, Pencil, Trash2, ChevronDown, ChevronUp, FileText, CheckCircle2, Eye, Filter, Printer, Download,
+  DollarSign, RefreshCcw, AlertCircle,
 } from "lucide-react";
 import ColumnSelector, { ColumnDef } from "@/components/ColumnSelector";
 import { StatusDot, ActionGear } from "@/components/TableActions";
@@ -72,6 +73,8 @@ interface Installment {
   ir_deduction: number | null;
   status: string;
   paid_at: string | null;
+  financial_status: string;
+  accounts_receivable_id: string | null;
 }
 
 type SortKey = "code" | "tenant_name" | "property_code" | "rent_value" | "start_date" | "due_day" | "status";
@@ -113,6 +116,14 @@ const INST_LABELS: Record<string, string> = {
   em_aberto: "Em aberto",
   pago: "Pago",
   atrasado: "Atrasado",
+};
+
+// Financial status badge for installments
+const FinancialStatusBadge = ({ status }: { status: string }) => {
+  if (status === "paid") return <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/25 text-xs font-normal">Pago</Badge>;
+  if (status === "generated") return <Badge className="bg-blue-500/15 text-blue-600 border-blue-500/25 text-xs font-normal">CR Gerado</Badge>;
+  if (status === "cancelled") return <Badge variant="destructive" className="bg-destructive/10 text-destructive border-destructive/20 text-xs font-normal">Cancelado</Badge>;
+  return <Badge variant="outline" className="text-amber-600 border-amber-500/30 bg-amber-500/10 text-xs font-normal">Pendente</Badge>;
 };
 
 
@@ -297,10 +308,17 @@ export default function GestaoContratos() {
   const [managementContract, setManagementContract] = useState<Contract | null>(null);
   const [installments, setInstallments] = useState<Installment[]>([]);
   const [loadingInst, setLoadingInst] = useState(false);
-  const [paidDateInputs, setPaidDateInputs] = useState<Record<string, string>>({});
-  const [markingPaid, setMarkingPaid] = useState<string | null>(null);
   const [editingInstValue, setEditingInstValue] = useState<Record<string, string>>({});
   const [savingInstValue, setSavingInstValue] = useState<string | null>(null);
+
+  // Generate accounts receivable dialog
+  const [generateCROpen, setGenerateCROpen] = useState(false);
+  const [generatingCR, setGeneratingCR] = useState(false);
+
+  // Reopen installments dialog
+  const [reopenInstOpen, setReopenInstOpen] = useState(false);
+  const [reopeningInst, setReopeningInst] = useState(false);
+
 
   // Print / template
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
@@ -767,19 +785,117 @@ export default function GestaoContratos() {
     setLoadingInst(false);
   };
 
-  const markAsPaid = async (inst: Installment) => {
-    const paidDate = paidDateInputs[inst.id] || format(new Date(), "yyyy-MM-dd");
-    setMarkingPaid(inst.id);
-    const { error: err } = await supabase.from("rental_installments")
-      .update({ status: "pago", paid_at: paidDate, updated_at: new Date().toISOString() })
-      .eq("id", inst.id);
-    if (err) { toast.error("Erro ao marcar parcela como paga."); }
-    else {
-      toast.success("Parcela marcada como paga.");
-      setInstallments((prev) => prev.map((i) => i.id === inst.id ? { ...i, status: "pago", paid_at: paidDate } : i));
+  // Generate accounts receivable function
+  const handleGenerateCR = async () => {
+    if (!managementContract || !company) return;
+    setGeneratingCR(true);
+    try {
+      const pendingInsts = installments.filter((i) => i.financial_status === "pending");
+      if (pendingInsts.length === 0) {
+        toast.warning("Nenhuma parcela pendente para gerar.");
+        setGeneratingCR(false);
+        setGenerateCROpen(false);
+        return;
+      }
+
+      // Get tenant_id from contract
+      const tenantId = managementContract.tenant_id;
+
+      for (const inst of pendingInsts) {
+        // Build document_number: ALUG-{contractCode}-{YYYYMM}
+        const [month, year] = inst.competence.split("/");
+        const compYYYYMM = `${year}${month}`;
+        const contractRef = managementContract.code ?? managementContract.id.slice(0, 8);
+        const docNumber = `ALUG-${contractRef}-${compYYYYMM}`;
+
+        // Check uniqueness
+        const { data: existing } = await supabase
+          .from("accounts_receivable")
+          .select("id")
+          .eq("company_id", company.id)
+          .eq("document_number", docNumber)
+          .maybeSingle();
+
+        if (existing) {
+          toast.warning(`Título ${docNumber} já existe. Ignorado.`);
+          continue;
+        }
+
+        // Create accounts_receivable record
+        const { data: arData, error: arErr } = await supabase
+          .from("accounts_receivable")
+          .insert({
+            company_id: company.id,
+            client_id: tenantId,
+            contract_id: managementContract.id,
+            installment_id: inst.id,
+            document_number: docNumber,
+            description: `Aluguel - Contrato ${contractRef} - Parcela ${inst.competence}`,
+            issue_date: format(new Date(), "yyyy-MM-dd"),
+            due_date: inst.due_date,
+            amount: inst.value,
+            source_type: "contract_installment",
+            status: "pending",
+          })
+          .select("id")
+          .single();
+
+        if (arErr || !arData) {
+          toast.error(`Erro ao gerar título para ${inst.competence}: ${arErr?.message}`);
+          continue;
+        }
+
+        // Update installment
+        await supabase
+          .from("rental_installments")
+          .update({
+            financial_status: "generated",
+            accounts_receivable_id: arData.id,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", inst.id);
+      }
+
+      toast.success(`${pendingInsts.length} título(s) de Contas a Receber gerado(s) com sucesso!`);
+      setGenerateCROpen(false);
+
+      // Reload installments
+      const { data } = await supabase.from("rental_installments").select("*").eq("contract_id", managementContract.id).order("due_date");
+      setInstallments((data as Installment[]) ?? []);
+    } catch (e: any) {
+      toast.error(e.message ?? "Erro ao gerar Contas a Receber.");
+    } finally {
+      setGeneratingCR(false);
     }
-    setMarkingPaid(null);
   };
+
+  // Reopen pending installments (admin)
+  const handleReopenInst = async () => {
+    if (!managementContract) return;
+    setReopeningInst(true);
+    try {
+      const generatedInsts = installments.filter((i) => i.financial_status === "generated");
+      for (const inst of generatedInsts) {
+        if (inst.accounts_receivable_id) {
+          await supabase.from("accounts_receivable").delete().eq("id", inst.accounts_receivable_id);
+        }
+        await supabase.from("rental_installments").update({
+          financial_status: "pending",
+          accounts_receivable_id: null,
+          updated_at: new Date().toISOString(),
+        }).eq("id", inst.id);
+      }
+      toast.success(`${generatedInsts.length} parcela(s) reaberta(s) com sucesso.`);
+      setReopenInstOpen(false);
+      const { data } = await supabase.from("rental_installments").select("*").eq("contract_id", managementContract.id).order("due_date");
+      setInstallments((data as Installment[]) ?? []);
+    } catch (e: any) {
+      toast.error(e.message ?? "Erro ao reabrir parcelas.");
+    } finally {
+      setReopeningInst(false);
+    }
+  };
+
 
   const saveInstValue = async (inst: Installment) => {
     const newVal = parseCurrency(editingInstValue[inst.id]);
@@ -1164,15 +1280,36 @@ export default function GestaoContratos() {
                   )}
                 </DialogDescription>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 shrink-0"
-                onClick={exportInstallmentsExcel}
-                disabled={loadingInst || installments.length === 0}
-              >
-                <Download className="h-4 w-4" /> Excel
-              </Button>
+              <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+                {installments.some((i) => i.financial_status === "generated") && managementContract?.status === "ativo" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setReopenInstOpen(true)}
+                  >
+                    <RefreshCcw className="h-4 w-4" /> Reabrir pendentes
+                  </Button>
+                )}
+                {installments.some((i) => i.financial_status === "pending") && managementContract?.status === "ativo" && (
+                  <Button
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setGenerateCROpen(true)}
+                  >
+                    <DollarSign className="h-4 w-4" /> Gerar Contas a Receber
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={exportInstallmentsExcel}
+                  disabled={loadingInst || installments.length === 0}
+                >
+                  <Download className="h-4 w-4" /> Excel
+                </Button>
+              </div>
             </div>
           </DialogHeader>
           {(managementContract?.status === "encerrado" || managementContract?.status === "cancelado") && (
@@ -1190,7 +1327,8 @@ export default function GestaoContratos() {
                   <TableRow className="border-border/40">
                     <TableHead className="whitespace-nowrap">Competência</TableHead>
                     <TableHead className="whitespace-nowrap">Vencimento</TableHead>
-                    <TableHead className="whitespace-nowrap w-px">Status</TableHead>
+                    <TableHead className="whitespace-nowrap w-px">Situação</TableHead>
+                    <TableHead className="whitespace-nowrap w-px">Financeiro</TableHead>
                     <TableHead className="whitespace-nowrap">Pagamento</TableHead>
                     <TableHead className="whitespace-nowrap text-right">Valor do aluguel</TableHead>
                     <TableHead className="whitespace-nowrap text-right">Tx. Adm %</TableHead>
@@ -1200,12 +1338,12 @@ export default function GestaoContratos() {
                     <TableHead className="whitespace-nowrap text-right">Dedução IR</TableHead>
                     <TableHead className="whitespace-nowrap text-right">Valor IR</TableHead>
                     <TableHead className="whitespace-nowrap text-right font-semibold">Repasse ao proprietário</TableHead>
-                    <TableHead className="text-right w-px">Ação</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {installments.map((inst) => {
                     const resolvedStatus = resolveInstStatus(inst);
+                    const financialStatus = inst.financial_status ?? "pending";
                     const isEditing = editingInstValue[inst.id] !== undefined;
                     const feeP = inst.management_fee_percent ?? 0;
                     const feeV = inst.management_fee_value ?? (inst.value * feeP / 100);
@@ -1213,6 +1351,8 @@ export default function GestaoContratos() {
                     const irrfV = inst.irrf_value ?? 0;
                     const ownerNet = inst.owner_net_value ?? inst.repasse_value ?? (taxBase - irrfV);
                     const contractReadOnly = managementContract?.status === "encerrado" || managementContract?.status === "cancelado";
+                    // Block editing if financial status is generated or paid
+                    const instFinancialLocked = financialStatus === "generated" || financialStatus === "paid";
                     return (
                       <TableRow key={inst.id} className={`border-border/40 ${contractReadOnly ? "opacity-80" : ""}`}>
                         {/* Competência */}
@@ -1221,30 +1361,26 @@ export default function GestaoContratos() {
                         {/* Vencimento */}
                         <TableCell className="text-sm whitespace-nowrap">{format(parseISO(inst.due_date + "T00:00:00"), "dd/MM/yyyy")}</TableCell>
 
-                        {/* Status */}
+                        {/* Situação (legacy status dot) */}
                         <TableCell className="w-px whitespace-nowrap">
                           <StatusDot status={resolvedStatus} />
                         </TableCell>
 
-                        {/* Pagamento */}
+                        {/* Financial Status Badge */}
+                        <TableCell className="w-px whitespace-nowrap">
+                          <FinancialStatusBadge status={financialStatus} />
+                        </TableCell>
+
+                        {/* Pagamento - read only, filled by baixa */}
                         <TableCell className="whitespace-nowrap">
-                          {inst.status === "pago" ? (
-                            <span className="text-sm text-muted-foreground whitespace-nowrap">{inst.paid_at ? format(parseISO(inst.paid_at + "T00:00:00"), "dd/MM/yyyy") : "—"}</span>
-                          ) : contractReadOnly ? (
-                            <span className="text-sm text-muted-foreground">—</span>
-                          ) : (
-                            <Input
-                              type="date"
-                              className="h-7 text-xs w-36"
-                              value={paidDateInputs[inst.id] ?? ""}
-                              onChange={(e) => setPaidDateInputs((p) => ({ ...p, [inst.id]: e.target.value }))}
-                            />
-                          )}
+                          <span className="text-sm text-muted-foreground whitespace-nowrap">
+                            {inst.paid_at ? format(parseISO(inst.paid_at + "T00:00:00"), "dd/MM/yyyy") : "—"}
+                          </span>
                         </TableCell>
 
                         {/* Valor do aluguel */}
                         <TableCell className="font-mono text-sm text-right whitespace-nowrap">
-                          {!contractReadOnly && inst.status !== "pago" && isEditing ? (
+                          {!contractReadOnly && !instFinancialLocked && isEditing ? (
                             <div className="flex items-center gap-1 justify-end">
                               <Input
                                 className="h-7 text-xs w-24"
@@ -1259,9 +1395,9 @@ export default function GestaoContratos() {
                             </div>
                           ) : (
                             <span
-                              className={!contractReadOnly && inst.status !== "pago" ? "cursor-pointer hover:text-primary transition-colors" : ""}
-                              title={!contractReadOnly && inst.status !== "pago" ? "Clique para editar" : ""}
-                              onClick={() => !contractReadOnly && inst.status !== "pago" && setEditingInstValue((p) => ({ ...p, [inst.id]: formatMoney(inst.value) }))}
+                              className={!contractReadOnly && !instFinancialLocked ? "cursor-pointer hover:text-primary transition-colors" : ""}
+                              title={!contractReadOnly && !instFinancialLocked ? "Clique para editar" : ""}
+                              onClick={() => !contractReadOnly && !instFinancialLocked && setEditingInstValue((p) => ({ ...p, [inst.id]: formatMoney(inst.value) }))}
                             >
                               R$ {formatMoney(inst.value)}
                             </span>
@@ -1320,22 +1456,6 @@ export default function GestaoContratos() {
                         <TableCell className="font-mono text-sm font-semibold text-right whitespace-nowrap">
                           R$ {formatMoney(ownerNet)}
                         </TableCell>
-
-                        {/* Ação */}
-                        <TableCell className="text-right w-px whitespace-nowrap">
-                          {!contractReadOnly && inst.status !== "pago" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs gap-1"
-                              onClick={() => markAsPaid(inst)}
-                              disabled={markingPaid === inst.id}
-                            >
-                              {markingPaid === inst.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                              Pago
-                            </Button>
-                          )}
-                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -1345,6 +1465,65 @@ export default function GestaoContratos() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Generate Contas a Receber Confirmation Dialog */}
+      <AlertDialog open={generateCROpen} onOpenChange={setGenerateCROpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-primary" />
+              Gerar Contas a Receber
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-foreground">
+                <p>Você está prestes a gerar os títulos de Contas a Receber para todas as parcelas pendentes deste contrato.</p>
+                <div className="rounded-lg bg-muted/50 border border-border/50 p-3 space-y-1">
+                  <p className="font-medium text-foreground text-xs uppercase tracking-wide mb-2">Após gerar os títulos:</p>
+                  <p className="flex items-center gap-2"><AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" /> As parcelas ficarão travadas para edição</p>
+                  <p className="flex items-center gap-2"><AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" /> O controle de pagamento será feito pelo módulo financeiro</p>
+                </div>
+                <p className="text-muted-foreground">Parcelas pendentes: <strong className="text-foreground">{installments.filter((i) => i.financial_status === "pending").length}</strong></p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleGenerateCR} disabled={generatingCR}>
+              {generatingCR ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirmar geração"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reopen Installments Confirmation Dialog */}
+      <AlertDialog open={reopenInstOpen} onOpenChange={setReopenInstOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RefreshCcw className="h-5 w-5 text-primary" />
+              Reabrir parcelas pendentes
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-foreground">
+                <p>Esta operação irá remover os títulos de contas a receber das parcelas que ainda não foram pagas.</p>
+                <div className="rounded-lg bg-muted/50 border border-border/50 p-3 space-y-1">
+                  <p className="flex items-center gap-2"><AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" /> Parcelas com CR gerado serão reabertas para edição</p>
+                  <p className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" /> Parcelas já pagas serão preservadas</p>
+                </div>
+                <p className="text-muted-foreground">Parcelas a reabrir: <strong className="text-foreground">{installments.filter((i) => i.financial_status === "generated").length}</strong></p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleReopenInst} disabled={reopeningInst} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {reopeningInst ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirmar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+
 
       {/* Delete Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
