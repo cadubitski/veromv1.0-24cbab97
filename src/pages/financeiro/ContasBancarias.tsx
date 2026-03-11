@@ -275,6 +275,20 @@ export default function ContasBancarias() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
+      // Verifica se existem movimentações vinculadas
+      const { count } = await supabase
+        .from("bank_transactions")
+        .select("id", { count: "exact", head: true })
+        .eq("bank_account_id", deleteTarget.id);
+
+      if (count && count > 0) {
+        toast.error(
+          `Não é possível excluir a conta "${deleteTarget.account_name}" pois ela possui ${count} movimentação(ões) bancária(s) vinculada(s). Desative a conta em vez de excluí-la.`
+        );
+        setDeleteDialogOpen(false);
+        return;
+      }
+
       const { error: err } = await supabase
         .from("bank_accounts")
         .delete()
