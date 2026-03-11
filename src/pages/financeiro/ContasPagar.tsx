@@ -328,11 +328,34 @@ export default function ContasPagar() {
     setSavingBaixa(true);
     try {
       if (cancelBaixaItem.bank_transaction_id) {
-        const { error: delErr } = await supabase
+        // Verify the transaction exists before trying to delete
+        const { data: txCheck, error: checkErr } = await supabase
           .from("bank_transactions")
-          .delete()
-          .eq("id", cancelBaixaItem.bank_transaction_id);
-        if (delErr) throw new Error(delErr.message);
+          .select("id")
+          .eq("id", cancelBaixaItem.bank_transaction_id)
+          .maybeSingle();
+
+        if (checkErr) throw new Error(checkErr.message);
+
+        if (txCheck) {
+          const { error: delErr } = await supabase
+            .from("bank_transactions")
+            .delete()
+            .eq("id", cancelBaixaItem.bank_transaction_id);
+
+          if (delErr) throw new Error("Erro ao excluir movimentação bancária: " + delErr.message);
+
+          // Confirm deletion succeeded
+          const { data: stillExists } = await supabase
+            .from("bank_transactions")
+            .select("id")
+            .eq("id", cancelBaixaItem.bank_transaction_id)
+            .maybeSingle();
+
+          if (stillExists) {
+            throw new Error("Não foi possível remover a movimentação bancária. Verifique suas permissões.");
+          }
+        }
       }
 
       const { error: updErr } = await supabase
