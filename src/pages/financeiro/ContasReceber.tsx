@@ -387,19 +387,37 @@ export default function ContasReceber() {
     fetchData();
   };
 
-  // ── Export to Excel ─────────────────────────────────────────────────────────
+  // ── Export to Excel (respects visible columns) ──────────────────────────────
   const handleExport = () => {
-    const rows = filtered.map((i) => ({
-      "Nº Documento": i.document_number,
-      "Locatário": i.tenant_name ?? "—",
-      "Descrição": i.description,
-      "Emissão": fmtDate(i.issue_date),
-      "Vencimento": fmtDate(i.due_date),
-      "Valor (R$)": i.amount,
-      "Origem": i.source_type === "manual" ? "Manual" : "Contrato",
-      "Status": statusLabel(i.status),
-      "Recebido em": fmtDate(i.paid_at),
-    }));
+    const colMap: Record<string, (i: Receivable) => any> = {
+      document_number: (i) => i.document_number,
+      tenant_name:     (i) => i.tenant_name ?? "—",
+      description:     (i) => i.description,
+      issue_date:      (i) => fmtDate(i.issue_date),
+      due_date:        (i) => fmtDate(i.due_date),
+      amount:          (i) => i.amount,
+      source_type:     (i) => i.source_type === "manual" ? "Manual" : "Contrato",
+      paid_at:         (i) => fmtDate(i.paid_at),
+    };
+    const labelMap: Record<string, string> = {
+      document_number: "Nº Documento",
+      tenant_name:     "Locatário",
+      description:     "Descrição",
+      issue_date:      "Emissão",
+      due_date:        "Vencimento",
+      amount:          "Valor (R$)",
+      source_type:     "Origem",
+      paid_at:         "Recebido em",
+    };
+    // Always include Status
+    const rows = filtered.map((i) => {
+      const row: Record<string, any> = {};
+      ALL_COLUMNS.filter((c) => visibleCols.has(c.key)).forEach((c) => {
+        row[labelMap[c.key]] = colMap[c.key](i);
+      });
+      row["Status"] = statusLabel(i.status);
+      return row;
+    });
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Contas a Receber");
