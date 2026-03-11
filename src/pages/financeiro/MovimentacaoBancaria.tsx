@@ -493,6 +493,16 @@ export default function MovimentacaoBancaria() {
 
           <div className="space-y-4 py-2">
             <div className="space-y-2">
+              <FieldLabel label="Número do Documento" tooltip="Identificador único da movimentação. Ex: número do boleto, referência PIX, código interno." required />
+              <Input
+                value={form.document_number}
+                onChange={(e) => f("document_number", e.target.value)}
+                placeholder="Ex: BOL-2024-001, PIX-123..."
+                maxLength={100}
+              />
+            </div>
+
+            <div className="space-y-2">
               <FieldLabel label="Conta bancária" tooltip="Conta onde a movimentação será registrada." required />
               <select
                 value={form.bank_account_id}
