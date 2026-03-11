@@ -412,13 +412,13 @@ export default function MovimentacaoBancaria() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
+                  <TableCell colSpan={8} className="text-center py-12">
                     <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12 text-muted-foreground text-sm">
+                  <TableCell colSpan={8} className="text-center py-12 text-muted-foreground text-sm">
                     {search || filterAccount || filterType || filterDateFrom || filterDateTo
                       ? "Nenhuma movimentação encontrada com os filtros aplicados."
                       : "Nenhuma movimentação registrada ainda."}
