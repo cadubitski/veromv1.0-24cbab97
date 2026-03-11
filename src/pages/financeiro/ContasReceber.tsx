@@ -211,7 +211,7 @@ export default function ContasReceber() {
         description: form.description,
         issue_date: form.issue_date,
         due_date: form.due_date,
-        amount: parseFloat(form.amount.replace(/\./g, "").replace(",", ".")),
+        amount: parseCurrency(form.amount) ?? 0,
       })
       .eq("id", editItem.id);
     setSaving(false);
