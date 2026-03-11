@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { maskCurrency, parseCurrency } from "@/lib/masks";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -210,7 +211,7 @@ export default function ContasBancarias() {
     setSaving(true);
     setError(null);
 
-    const initial = parseFloat(form.initial_balance) || 0;
+    const initial = parseCurrency(form.initial_balance) ?? 0;
 
     try {
       if (editAccount) {
@@ -545,9 +546,9 @@ export default function ContasBancarias() {
               />
               <Input
                 value={form.initial_balance}
-                onChange={(e) => f("initial_balance", e.target.value)}
-                placeholder="Ex: 1500.00"
-                inputMode="decimal"
+                onChange={(e) => f("initial_balance", maskCurrency(e.target.value))}
+                placeholder="0,00"
+                inputMode="numeric"
                 disabled={!!editAccount}
               />
               {editAccount && (
