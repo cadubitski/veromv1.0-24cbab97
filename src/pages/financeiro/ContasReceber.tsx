@@ -561,8 +561,9 @@ export default function ContasReceber() {
               <Label>Valor (R$) *</Label>
               <Input
                 value={form.amount}
-                onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+                onChange={(e) => setForm((f) => ({ ...f, amount: maskCurrency(e.target.value) }))}
                 placeholder="0,00"
+                inputMode="numeric"
               />
             </div>
           </div>
