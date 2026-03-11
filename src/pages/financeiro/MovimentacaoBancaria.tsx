@@ -189,13 +189,30 @@ export default function MovimentacaoBancaria() {
   const f = (key: keyof typeof form, value: string) =>
     setForm((p) => ({ ...p, [key]: value }));
 
+  const validateDocNumber = async (docNumber: string): Promise<boolean> => {
+    const { data } = await supabase
+      .from("bank_transactions")
+      .select("id")
+      .eq("company_id", company!.id)
+      .eq("document_number", docNumber.trim())
+      .maybeSingle();
+    return !data;
+  };
+
   const handleSave = async () => {
     if (!form.bank_account_id) { setError("Selecione a conta bancária."); return; }
     if (!form.transaction_date) { setError("Data é obrigatória."); return; }
+    if (!form.document_number.trim()) { setError("Número do Documento é obrigatório."); return; }
     if (!form.description.trim()) { setError("Descrição é obrigatória."); return; }
     const amount = parseCurrency(form.amount);
     if (!amount || amount <= 0) { setError("Informe um valor válido."); return; }
     if (!company?.id) return;
+
+    const isUnique = await validateDocNumber(form.document_number);
+    if (!isUnique) {
+      setError("O número do documento já está sendo utilizado em outra movimentação.");
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -207,6 +224,7 @@ export default function MovimentacaoBancaria() {
           company_id: company.id,
           bank_account_id: form.bank_account_id,
           transaction_date: form.transaction_date,
+          document_number: form.document_number.trim(),
           description: form.description.trim(),
           type: form.type,
           amount,
