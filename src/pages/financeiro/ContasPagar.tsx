@@ -570,11 +570,7 @@ export default function ContasPagar() {
                       )}
                       <TableCell className="w-px whitespace-nowrap">
                         <ActionGear
-                          legend={[
-                            { color: "green",  label: "Pago" },
-                            { color: "yellow", label: "Pendente" },
-                            { color: "red",    label: "Cancelado" },
-                          ]}
+                          legendKeys={["paid", "pending", "cancelled"]}
                           actions={[
                             {
                               label: "Visualizar",
@@ -600,7 +596,7 @@ export default function ContasPagar() {
                               label: "Excluir",
                               icon: <Trash2 className="h-4 w-4" />,
                               onClick: () => setDeleteItem(item),
-                              destructive: true,
+                              variant: "destructive" as const,
                             }] : []),
                           ]}
                         />
