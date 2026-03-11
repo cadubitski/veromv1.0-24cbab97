@@ -546,9 +546,9 @@ export default function ContasBancarias() {
               />
               <Input
                 value={form.initial_balance}
-                onChange={(e) => f("initial_balance", e.target.value)}
-                placeholder="Ex: 1500.00"
-                inputMode="decimal"
+                onChange={(e) => f("initial_balance", maskCurrency(e.target.value))}
+                placeholder="0,00"
+                inputMode="numeric"
                 disabled={!!editAccount}
               />
               {editAccount && (
