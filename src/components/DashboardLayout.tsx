@@ -253,7 +253,6 @@ function SubGroupComp({ group, onNavigate }: { group: NavSubGroup; onNavigate?: 
           {group.children.map((child) => (
             <SidebarLink key={child.href} child={child} onNavigate={onNavigate} />
           ))}
-          })}
         </div>
       )}
     </div>
