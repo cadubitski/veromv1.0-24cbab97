@@ -60,11 +60,27 @@ Deno.serve(async (req) => {
     }
 
     const data = await res.json();
-    const subscription = Array.isArray(data) && data.length > 0 ? data[0] : (data ?? null);
+    console.log("billing-core raw response:", JSON.stringify(data));
+
+    // O endpoint /protected/data retorna { message: "Access granted" } quando a assinatura está ativa.
+    // Se chegou aqui com status 200, a assinatura está ativa.
+    let resolvedStatus: string = "active";
+
+    if (data && typeof data === "object") {
+      if ("status" in data && data.status) {
+        // retornou status diretamente
+        resolvedStatus = data.status as string;
+      } else if (Array.isArray(data) && data.length > 0 && data[0]?.status) {
+        resolvedStatus = data[0].status as string;
+      }
+      // { message: "Access granted" } → status 200 = ativo
+    }
+
+    console.log("resolved billing status:", resolvedStatus);
 
     return new Response(
       JSON.stringify({
-        status: subscription?.status ?? null,
+        status: resolvedStatus,
         customer_email,
         saas_key: SAAS_KEY,
       }),
