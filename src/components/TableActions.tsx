@@ -31,6 +31,10 @@ const STATUS_DOT_MAP: Record<string, StatusDotConfig> = {
   em_aberto:  { color: "bg-amber-400",   label: "Em aberto" },
   pago:       { color: "bg-emerald-500", label: "Pago" },
   atrasado:   { color: "bg-rose-500",    label: "Atrasado" },
+  // accounts receivable
+  pending:    { color: "bg-amber-400",   label: "Pendente" },
+  paid:       { color: "bg-emerald-500", label: "Recebido" },
+  cancelled:  { color: "bg-rose-500",    label: "Cancelado" },
 };
 
 interface StatusDotProps {
