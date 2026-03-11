@@ -332,6 +332,19 @@ export default function ContasReceber() {
 
       if (updErr) throw new Error(updErr.message);
 
+      // Auto-update linked rental installment if exists
+      if (baixaItem.installment_id) {
+        await supabase
+          .from("rental_installments")
+          .update({
+            status: "pago",
+            paid_at: baixaForm.paid_at,
+            financial_status: "paid",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", baixaItem.installment_id);
+      }
+
       toast.success("Baixa registrada com sucesso.");
       setBaixaItem(null);
       setBaixaForm(emptyBaixa);
