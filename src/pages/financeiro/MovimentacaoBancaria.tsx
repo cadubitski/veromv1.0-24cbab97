@@ -16,8 +16,10 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
 import {
-  Loader2, Plus, Search, Trash2, ChevronUp, ChevronDown, FileDown, TrendingUp, TrendingDown,
+  Loader2, Plus, Search, Trash2, ChevronUp, ChevronDown, FileDown,
+  TrendingUp, TrendingDown, Eye,
 } from "lucide-react";
 import { ActionGear } from "@/components/TableActions";
 import { toast } from "sonner";
