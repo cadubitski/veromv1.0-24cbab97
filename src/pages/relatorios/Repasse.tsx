@@ -265,11 +265,12 @@ export default function Repasse() {
           <Table>
             <TableHeader>
               <TableRow className="border-border/40">
-                <TableHead className="whitespace-nowrap">Competência</TableHead>
-                <TableHead className="whitespace-nowrap">Vencimento</TableHead>
-                <TableHead className="whitespace-nowrap">Locatário</TableHead>
+                <TableHead className="whitespace-nowrap">Contrato</TableHead>
                 <TableHead className="whitespace-nowrap">Imóvel</TableHead>
                 <TableHead className="whitespace-nowrap">Locador</TableHead>
+                <TableHead className="whitespace-nowrap">Locatário</TableHead>
+                <TableHead className="whitespace-nowrap">Competência</TableHead>
+                <TableHead className="whitespace-nowrap">Vencimento</TableHead>
                 <TableHead className="text-right whitespace-nowrap">Valor do aluguel</TableHead>
                 <TableHead className="text-right whitespace-nowrap">Tx. Adm %</TableHead>
                 <TableHead className="text-right whitespace-nowrap">Valor Tx. Adm</TableHead>
@@ -283,24 +284,25 @@ export default function Repasse() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={14} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={15} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={14} className="text-center py-12 text-muted-foreground text-sm">Nenhum registro encontrado.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={15} className="text-center py-12 text-muted-foreground text-sm">Nenhum registro encontrado.</TableCell></TableRow>
               ) : filtered.map((r) => {
                 const rs = resolveStatus(r);
                 const hasIrrf = r.irrf_value > 0;
                 return (
                   <TableRow key={r.id} className="border-border/40 hover:bg-muted/30 transition-colors">
-                    <TableCell className="font-mono text-sm whitespace-nowrap">{r.competence}</TableCell>
-                    <TableCell className="text-sm whitespace-nowrap">{format(parseISO(r.due_date + "T00:00:00"), "dd/MM/yyyy")}</TableCell>
-                    <TableCell className="font-medium text-sm whitespace-nowrap">{r.tenant_name}</TableCell>
+                    <TableCell className="font-mono text-sm whitespace-nowrap">{r.contract_code}</TableCell>
                     <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{r.property_code}</TableCell>
                     <TableCell className="text-sm whitespace-nowrap">
                       <div className="flex flex-col">
-                        <span className="text-muted-foreground">{r.owner_name}</span>
+                        <span>{r.owner_name}</span>
                         <span className="text-xs text-muted-foreground/60">{r.owner_person_type === "fisica" ? "PF" : "PJ"}</span>
                       </div>
                     </TableCell>
+                    <TableCell className="font-medium text-sm whitespace-nowrap">{r.tenant_name}</TableCell>
+                    <TableCell className="font-mono text-sm whitespace-nowrap">{r.competence}</TableCell>
+                    <TableCell className="text-sm whitespace-nowrap">{format(parseISO(r.due_date + "T00:00:00"), "dd/MM/yyyy")}</TableCell>
                     <TableCell className="text-right font-mono text-sm whitespace-nowrap">R$ {fm(r.value)}</TableCell>
                     <TableCell className="text-right font-mono text-xs text-muted-foreground whitespace-nowrap">
                       {r.management_fee_percent.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%
