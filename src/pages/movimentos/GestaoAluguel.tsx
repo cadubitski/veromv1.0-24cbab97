@@ -24,13 +24,14 @@ import {
   Tooltip, TooltipContent, TooltipTrigger, TooltipProvider,
 } from "@/components/ui/tooltip";
 import {
-  Loader2, Plus, Search, Pencil, Trash2, ChevronDown, ChevronUp, FileText, CheckCircle2, Eye, Filter, Printer,
+  Loader2, Plus, Search, Pencil, Trash2, ChevronDown, ChevronUp, FileText, CheckCircle2, Eye, Filter, Printer, Download,
 } from "lucide-react";
 import ColumnSelector, { ColumnDef } from "@/components/ColumnSelector";
 import { StatusDot, ActionGear } from "@/components/TableActions";
 import { toast } from "sonner";
 import { maskCurrency, parseCurrency } from "@/lib/masks";
 import { format, addMonths, setDate, parseISO } from "date-fns";
+import * as XLSX from "xlsx";
 
 interface Tenant { id: string; full_name: string; }
 interface Property { id: string; code: string; address: string | null; client_name?: string; }
@@ -847,6 +848,37 @@ export default function GestaoContratos() {
     setSavingInstValue(null);
   };
 
+  const exportInstallmentsExcel = () => {
+    if (!managementContract || installments.length === 0) return;
+    const exportData = installments.map((inst) => {
+      const feeP = inst.management_fee_percent ?? 0;
+      const feeV = inst.management_fee_value ?? (inst.value * feeP / 100);
+      const taxBase = inst.tax_base_value ?? (inst.value - feeV);
+      const irrfV = inst.irrf_value ?? 0;
+      const ownerNet = inst.owner_net_value ?? inst.repasse_value ?? (taxBase - irrfV);
+      const resolvedStatus = resolveInstStatus(inst);
+      return {
+        "Competência": inst.competence,
+        "Vencimento": format(parseISO(inst.due_date + "T00:00:00"), "dd/MM/yyyy"),
+        "Status": INST_LABELS[resolvedStatus] ?? inst.status,
+        "Data Pagamento": inst.paid_at ? format(parseISO(inst.paid_at + "T00:00:00"), "dd/MM/yyyy") : "",
+        "Valor do aluguel (R$)": inst.value,
+        "Tx. Adm (%)": feeP,
+        "Valor Tx. Adm (R$)": feeV,
+        "Base IR (R$)": taxBase,
+        "Alíquota IR (%)": inst.ir_rate ?? 0,
+        "Dedução IR (R$)": inst.ir_deduction ?? 0,
+        "Valor IR / IRRF (R$)": irrfV,
+        "Repasse ao proprietário (R$)": ownerNet,
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Parcelas");
+    const filename = `parcelas_${managementContract.code ?? managementContract.id.slice(0, 8)}_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
+    XLSX.writeFile(wb, filename);
+  };
+
   const tenantItems = tenants.map((t) => ({ id: t.id, label: t.full_name }));
   const propertyItems = properties.map((p) => ({
     id: p.id,
@@ -1122,13 +1154,26 @@ export default function GestaoContratos() {
       <Dialog open={managementOpen} onOpenChange={setManagementOpen}>
         <DialogContent className="max-w-[98vw] w-full flex flex-col max-h-[90vh]">
           <DialogHeader className="shrink-0">
-            <DialogTitle>Cronograma de pagamentos</DialogTitle>
-            <DialogDescription>
-              Inq {managementContract?.tenants?.full_name} — R$ {managementContract ? formatMoney(managementContract.rent_value) : ""}/mês
-              {managementContract && managementContract.management_fee_percent > 0 && (
-                <> · Taxa: {managementContract.management_fee_percent}% · Repasse: R$ {formatMoney(managementContract.repasse_value)}</>
-              )}
-            </DialogDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <DialogTitle>Cronograma de pagamentos</DialogTitle>
+                <DialogDescription>
+                  Inq {managementContract?.tenants?.full_name} — R$ {managementContract ? formatMoney(managementContract.rent_value) : ""}/mês
+                  {managementContract && managementContract.management_fee_percent > 0 && (
+                    <> · Taxa: {managementContract.management_fee_percent}% · Repasse: R$ {formatMoney(managementContract.repasse_value)}</>
+                  )}
+                </DialogDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 shrink-0"
+                onClick={exportInstallmentsExcel}
+                disabled={loadingInst || installments.length === 0}
+              >
+                <Download className="h-4 w-4" /> Excel
+              </Button>
+            </div>
           </DialogHeader>
           <div className="overflow-auto flex-1">
             {loadingInst ? (

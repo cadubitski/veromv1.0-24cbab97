@@ -23,6 +23,8 @@ interface InstRow {
   management_fee_percent: number;
   management_fee_value: number;
   tax_base_value: number;
+  ir_rate: number | null;
+  ir_deduction: number | null;
   irrf_value: number;
   owner_net_value: number;
   repasse_value: number;
@@ -78,7 +80,7 @@ export default function Repasse() {
       .select(`
         id, competence, due_date, value,
         management_fee_percent, management_fee_value,
-        tax_base_value, irrf_value, owner_net_value, repasse_value,
+        tax_base_value, ir_rate, ir_deduction, irrf_value, owner_net_value, repasse_value,
         status, paid_at,
         rental_contracts(
           tenant_id, tenants(full_name),
@@ -101,6 +103,8 @@ export default function Repasse() {
         management_fee_percent: feeP,
         management_fee_value: feeV,
         tax_base_value: taxBase,
+        ir_rate: r.ir_rate ?? null,
+        ir_deduction: r.ir_deduction ?? null,
         irrf_value: irrfV,
         owner_net_value: ownerNet,
         repasse_value: ownerNet,
@@ -139,6 +143,7 @@ export default function Repasse() {
   const totals = useMemo(() => ({
     value: filtered.reduce((s, r) => s + r.value, 0),
     fee: filtered.reduce((s, r) => s + r.management_fee_value, 0),
+    taxBase: filtered.reduce((s, r) => s + r.tax_base_value, 0),
     irrf: filtered.reduce((s, r) => s + r.irrf_value, 0),
     repasse: filtered.reduce((s, r) => s + r.repasse_value, 0),
   }), [filtered]);
@@ -154,12 +159,14 @@ export default function Repasse() {
       "Endereço": r.property_address,
       "Locador": r.owner_name,
       "Tipo Locador": r.owner_person_type === "fisica" ? "Pessoa Física" : "Pessoa Jurídica",
-      "Valor Aluguel": r.value,
-      "Taxa Admin (%)": r.management_fee_percent,
-      "Valor Admin (R$)": r.management_fee_value,
+      "Valor Aluguel (R$)": r.value,
+      "Tx. Adm (%)": r.management_fee_percent,
+      "Valor Tx. Adm (R$)": r.management_fee_value,
       "Base IR (R$)": r.tax_base_value,
-      "IRRF (R$)": r.irrf_value,
-      "Repasse Líquido (R$)": r.repasse_value,
+      "Alíquota IR (%)": r.ir_rate ?? 0,
+      "Dedução IR (R$)": r.ir_deduction ?? 0,
+      "Valor IR / IRRF (R$)": r.irrf_value,
+      "Repasse ao Proprietário (R$)": r.repasse_value,
       "Status": INST_LABELS[resolveStatus(r)] ?? r.status,
       "Data Pagamento": r.paid_at ? format(parseISO(r.paid_at + "T00:00:00"), "dd/MM/yyyy") : "",
     }));
@@ -171,12 +178,14 @@ export default function Repasse() {
       "Endereço": "",
       "Locador": "",
       "Tipo Locador": "",
-      "Valor Aluguel": totals.value,
-      "Taxa Admin (%)": 0,
-      "Valor Admin (R$)": totals.fee,
-      "Base IR (R$)": 0,
-      "IRRF (R$)": totals.irrf,
-      "Repasse Líquido (R$)": totals.repasse,
+      "Valor Aluguel (R$)": totals.value,
+      "Tx. Adm (%)": 0,
+      "Valor Tx. Adm (R$)": totals.fee,
+      "Base IR (R$)": totals.taxBase,
+      "Alíquota IR (%)": 0,
+      "Dedução IR (R$)": 0,
+      "Valor IR / IRRF (R$)": totals.irrf,
+      "Repasse ao Proprietário (R$)": totals.repasse,
       "Status": "",
       "Data Pagamento": "",
     } as any);
@@ -229,58 +238,69 @@ export default function Repasse() {
         </div>
 
         {/* Table */}
-        <div className="card-premium rounded-xl overflow-hidden">
+        <div className="card-premium rounded-xl overflow-hidden overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="border-border/40">
-                <TableHead>Competência</TableHead>
-                <TableHead>Vencimento</TableHead>
-                <TableHead>Locatário</TableHead>
-                <TableHead className="hidden md:table-cell">Imóvel</TableHead>
-                <TableHead className="hidden lg:table-cell">Locador</TableHead>
-                <TableHead className="text-right">Aluguel</TableHead>
-                <TableHead className="text-right hidden md:table-cell">Taxa Admin</TableHead>
-                <TableHead className="text-right hidden lg:table-cell">Base IR</TableHead>
-                <TableHead className="text-right hidden lg:table-cell">IRRF</TableHead>
-                <TableHead className="text-right font-semibold">Repasse Líquido</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className="whitespace-nowrap">Competência</TableHead>
+                <TableHead className="whitespace-nowrap">Vencimento</TableHead>
+                <TableHead className="whitespace-nowrap">Locatário</TableHead>
+                <TableHead className="whitespace-nowrap">Imóvel</TableHead>
+                <TableHead className="whitespace-nowrap">Locador</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Valor do aluguel</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Tx. Adm %</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Valor Tx. Adm</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Base IR</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Alíquota IR</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Dedução IR</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Valor IR</TableHead>
+                <TableHead className="text-right whitespace-nowrap font-semibold">Repasse ao proprietário</TableHead>
+                <TableHead className="whitespace-nowrap">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={11} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={14} className="text-center py-12"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={11} className="text-center py-12 text-muted-foreground text-sm">Nenhum registro encontrado.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={14} className="text-center py-12 text-muted-foreground text-sm">Nenhum registro encontrado.</TableCell></TableRow>
               ) : filtered.map((r) => {
                 const rs = resolveStatus(r);
                 const hasIrrf = r.irrf_value > 0;
                 return (
                   <TableRow key={r.id} className="border-border/40 hover:bg-muted/30 transition-colors">
-                    <TableCell className="font-mono text-sm">{r.competence}</TableCell>
+                    <TableCell className="font-mono text-sm whitespace-nowrap">{r.competence}</TableCell>
                     <TableCell className="text-sm whitespace-nowrap">{format(parseISO(r.due_date + "T00:00:00"), "dd/MM/yyyy")}</TableCell>
-                    <TableCell className="font-medium text-sm">{r.tenant_name}</TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground text-sm">{r.property_code}</TableCell>
-                    <TableCell className="hidden lg:table-cell text-sm">
+                    <TableCell className="font-medium text-sm whitespace-nowrap">{r.tenant_name}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{r.property_code}</TableCell>
+                    <TableCell className="text-sm whitespace-nowrap">
                       <div className="flex flex-col">
                         <span className="text-muted-foreground">{r.owner_name}</span>
                         <span className="text-xs text-muted-foreground/60">{r.owner_person_type === "fisica" ? "PF" : "PJ"}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right font-mono text-sm">R$ {fm(r.value)}</TableCell>
-                    <TableCell className="text-right font-mono text-sm hidden md:table-cell text-muted-foreground">
-                      R$ {fm(r.management_fee_value)}{" "}
-                      <span className="text-xs">({r.management_fee_percent}%)</span>
+                    <TableCell className="text-right font-mono text-sm whitespace-nowrap">R$ {fm(r.value)}</TableCell>
+                    <TableCell className="text-right font-mono text-xs text-muted-foreground whitespace-nowrap">
+                      {r.management_fee_percent.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%
                     </TableCell>
-                    <TableCell className="text-right font-mono text-sm hidden lg:table-cell text-muted-foreground">
+                    <TableCell className="text-right font-mono text-xs text-muted-foreground whitespace-nowrap">
+                      R$ {fm(r.management_fee_value)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs text-muted-foreground whitespace-nowrap">
                       R$ {fm(r.tax_base_value)}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-sm hidden lg:table-cell">
+                    <TableCell className="text-right font-mono text-xs text-muted-foreground whitespace-nowrap">
+                      {r.ir_rate != null ? `${r.ir_rate.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 })}%` : <span>—</span>}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs text-muted-foreground whitespace-nowrap">
+                      {r.ir_deduction != null ? `R$ ${fm(r.ir_deduction)}` : <span>—</span>}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs whitespace-nowrap">
                       {hasIrrf
                         ? <span className="text-destructive/80">R$ {fm(r.irrf_value)}</span>
                         : <span className="text-muted-foreground">—</span>
                       }
                     </TableCell>
-                    <TableCell className="text-right font-mono text-sm font-semibold">R$ {fm(r.repasse_value)}</TableCell>
+                    <TableCell className="text-right font-mono text-sm font-semibold whitespace-nowrap">R$ {fm(r.repasse_value)}</TableCell>
                     <TableCell><Badge variant={INST_COLORS[rs] ?? "outline"} className="text-xs">{INST_LABELS[rs] ?? rs}</Badge></TableCell>
                   </TableRow>
                 );
@@ -290,10 +310,11 @@ export default function Repasse() {
         </div>
 
         {/* Totals */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {[
             { label: "Total Aluguel", value: totals.value, accent: false, sub: `${filtered.length} parcela(s)` },
             { label: "Total Taxa Admin", value: totals.fee, accent: false, sub: "Administração imobiliária" },
+            { label: "Total Base IR", value: totals.taxBase, accent: false, sub: "Base de cálculo do IR" },
             { label: "Total IRRF Retido", value: totals.irrf, accent: false, sub: "Apenas locadores PF", highlight: totals.irrf > 0 },
             { label: "Total Repasse Líquido", value: totals.repasse, accent: true, sub: "Valor ao proprietário" },
           ].map((item) => (
