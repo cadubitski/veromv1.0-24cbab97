@@ -205,7 +205,7 @@ export default function BankAccountStatement({ bankAccountId, onBalanceChanged }
                           onClick: () => setDeleteTarget(t),
                           variant: "destructive" as const,
                           disabled: t.origin_type !== "manual",
-                          title: t.origin_type !== "manual"
+                          tooltip: t.origin_type !== "manual"
                             ? "Exclusão não permitida: movimentação originada de baixa de título financeiro."
                             : undefined,
                         },
