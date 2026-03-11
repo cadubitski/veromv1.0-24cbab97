@@ -35,16 +35,6 @@ export interface NavItem {
 export const userNav: NavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard", permKey: "dashboard" },
   {
-    label: "Financeiro",
-    icon: Landmark,
-    children: [
-      { label: "Contas Bancárias",      href: "/financeiro/contas-bancarias",      permKey: "financeiro.contas-bancarias" },
-      { label: "Movimentação Bancária",  href: "/financeiro/movimentacao-bancaria",  permKey: "financeiro.movimentacao-bancaria" },
-      { label: "Contas a Receber",       href: "/financeiro/contas-receber",          permKey: "financeiro.contas-receber" },
-      { label: "Contas a Pagar",         href: "/financeiro/contas-pagar",            permKey: "financeiro.contas-pagar" },
-    ],
-  },
-  {
     label: "Cadastros",
     icon: BookUser,
     children: [
@@ -59,6 +49,16 @@ export const userNav: NavItem[] = [
     icon: TrendingUp,
     children: [
       { label: "Gestão de Contratos", href: "/movimentos/gestao-aluguel", permKey: "movimentos.gestao-aluguel" },
+    ],
+  },
+  {
+    label: "Financeiro",
+    icon: Landmark,
+    children: [
+      { label: "Contas Bancárias",      href: "/financeiro/contas-bancarias",      permKey: "financeiro.contas-bancarias" },
+      { label: "Movimentação Bancária",  href: "/financeiro/movimentacao-bancaria",  permKey: "financeiro.movimentacao-bancaria" },
+      { label: "Contas a Receber",       href: "/financeiro/contas-receber",          permKey: "financeiro.contas-receber" },
+      { label: "Contas a Pagar",         href: "/financeiro/contas-pagar",            permKey: "financeiro.contas-pagar" },
     ],
   },
   {
