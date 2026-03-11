@@ -21,6 +21,11 @@ import EditorModelo from "./pages/documentos/EditorModelo";
 import TabelaIR from "./pages/cadastros/TabelaIR";
 import Dimob from "./pages/relatorios/Dimob";
 import InformeRendimentos from "./pages/relatorios/InformeRendimentos";
+import RelMovimentacaoBancaria from "./pages/relatorios/financeiro/RelMovimentacaoBancaria";
+import RelContasReceber from "./pages/relatorios/financeiro/RelContasReceber";
+import RelBaixasContasReceber from "./pages/relatorios/financeiro/RelBaixasContasReceber";
+import RelContasPagar from "./pages/relatorios/financeiro/RelContasPagar";
+import RelBaixasContasPagar from "./pages/relatorios/financeiro/RelBaixasContasPagar";
 import ContasBancarias from "./pages/financeiro/ContasBancarias";
 import MovimentacaoBancaria from "./pages/financeiro/MovimentacaoBancaria";
 import ContasReceber from "./pages/financeiro/ContasReceber";
@@ -58,6 +63,11 @@ const App = () => (
             <Route path="/relatorios/repasse" element={<ProtectedRoute><Repasse /></ProtectedRoute>} />
             <Route path="/relatorios/dimob" element={<ProtectedRoute><Dimob /></ProtectedRoute>} />
             <Route path="/relatorios/informe-rendimentos" element={<ProtectedRoute><InformeRendimentos /></ProtectedRoute>} />
+            <Route path="/relatorios/financeiro/movimentacao" element={<ProtectedRoute><RelMovimentacaoBancaria /></ProtectedRoute>} />
+            <Route path="/relatorios/financeiro/contas-receber" element={<ProtectedRoute><RelContasReceber /></ProtectedRoute>} />
+            <Route path="/relatorios/financeiro/baixas-receber" element={<ProtectedRoute><RelBaixasContasReceber /></ProtectedRoute>} />
+            <Route path="/relatorios/financeiro/contas-pagar" element={<ProtectedRoute><RelContasPagar /></ProtectedRoute>} />
+            <Route path="/relatorios/financeiro/baixas-pagar" element={<ProtectedRoute><RelBaixasContasPagar /></ProtectedRoute>} />
             <Route path="/financeiro/contas-bancarias" element={<ProtectedRoute><ContasBancarias /></ProtectedRoute>} />
             <Route path="/financeiro/movimentacao-bancaria" element={<ProtectedRoute><MovimentacaoBancaria /></ProtectedRoute>} />
             <Route path="/financeiro/contas-receber" element={<ProtectedRoute><ContasReceber /></ProtectedRoute>} />
