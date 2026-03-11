@@ -14,6 +14,109 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounts_payable: {
+        Row: {
+          amount: number
+          bank_account_id: string | null
+          bank_transaction_id: string | null
+          company_id: string
+          contract_id: string | null
+          created_at: string
+          description: string
+          document_number: string
+          due_date: string
+          id: string
+          installment_id: string | null
+          issue_date: string
+          paid_at: string | null
+          source_type: string
+          status: string
+          updated_at: string
+          vendor_id: string | null
+        }
+        Insert: {
+          amount: number
+          bank_account_id?: string | null
+          bank_transaction_id?: string | null
+          company_id: string
+          contract_id?: string | null
+          created_at?: string
+          description: string
+          document_number: string
+          due_date: string
+          id?: string
+          installment_id?: string | null
+          issue_date: string
+          paid_at?: string | null
+          source_type?: string
+          status?: string
+          updated_at?: string
+          vendor_id?: string | null
+        }
+        Update: {
+          amount?: number
+          bank_account_id?: string | null
+          bank_transaction_id?: string | null
+          company_id?: string
+          contract_id?: string | null
+          created_at?: string
+          description?: string
+          document_number?: string
+          due_date?: string
+          id?: string
+          installment_id?: string | null
+          issue_date?: string
+          paid_at?: string | null
+          source_type?: string
+          status?: string
+          updated_at?: string
+          vendor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_payable_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_bank_transaction_id_fkey"
+            columns: ["bank_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "bank_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "rental_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_installment_id_fkey"
+            columns: ["installment_id"]
+            isOneToOne: false
+            referencedRelation: "rental_installments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts_receivable: {
         Row: {
           amount: number
