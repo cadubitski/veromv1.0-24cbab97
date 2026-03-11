@@ -19,6 +19,14 @@ interface NavItem {
 const userNav: NavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
   {
+    label: "Financeiro",
+    icon: Landmark,
+    children: [
+      { label: "Contas Bancárias", href: "/financeiro/contas-bancarias" },
+      { label: "Movimentação Bancária", href: "/financeiro/movimentacao-bancaria" },
+    ],
+  },
+  {
     label: "Cadastros",
     icon: BookUser,
     children: [
@@ -26,7 +34,6 @@ const userNav: NavItem[] = [
       { label: "Imóveis", href: "/cadastros/imoveis" },
       { label: "Locatários", href: "/cadastros/inquilinos" },
       { label: "Tabela de IR", href: "/cadastros/tabela-ir" },
-      { label: "Contas Bancárias", href: "/financeiro/contas-bancarias" },
     ],
   },
   {
