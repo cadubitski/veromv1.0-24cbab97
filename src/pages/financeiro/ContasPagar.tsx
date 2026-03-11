@@ -327,38 +327,11 @@ export default function ContasPagar() {
     if (!cancelBaixaItem) return;
     setSavingBaixa(true);
     try {
-      if (cancelBaixaItem.bank_transaction_id) {
-        // Verify the transaction exists before trying to delete
-        const { data: txCheck, error: checkErr } = await supabase
-          .from("bank_transactions")
-          .select("id")
-          .eq("id", cancelBaixaItem.bank_transaction_id)
-          .maybeSingle();
+      const txId = cancelBaixaItem.bank_transaction_id;
 
-        if (checkErr) throw new Error(checkErr.message);
-
-        if (txCheck) {
-          const { error: delErr } = await supabase
-            .from("bank_transactions")
-            .delete()
-            .eq("id", cancelBaixaItem.bank_transaction_id);
-
-          if (delErr) throw new Error("Erro ao excluir movimentação bancária: " + delErr.message);
-
-          // Confirm deletion succeeded
-          const { data: stillExists } = await supabase
-            .from("bank_transactions")
-            .select("id")
-            .eq("id", cancelBaixaItem.bank_transaction_id)
-            .maybeSingle();
-
-          if (stillExists) {
-            throw new Error("Não foi possível remover a movimentação bancária. Verifique suas permissões.");
-          }
-        }
-      }
-
-      const { error: updErr } = await supabase
+      // PASSO 1: Limpar o vínculo na accounts_payable ANTES de deletar a transação
+      // Isso evita a violação de FK constraint ao deletar bank_transactions
+      const { error: unlinkErr } = await supabase
         .from("accounts_payable")
         .update({
           status: "pending",
@@ -368,7 +341,18 @@ export default function ContasPagar() {
         })
         .eq("id", cancelBaixaItem.id);
 
-      if (updErr) throw new Error(updErr.message);
+      if (unlinkErr) throw new Error("Erro ao atualizar título: " + unlinkErr.message);
+
+      // PASSO 2: Agora que a FK foi desvinculada, deletar a movimentação bancária
+      // (o trigger revert_balance_on_delete ajustará o saldo automaticamente)
+      if (txId) {
+        const { error: delErr } = await supabase
+          .from("bank_transactions")
+          .delete()
+          .eq("id", txId);
+
+        if (delErr) throw new Error("Erro ao excluir movimentação bancária: " + delErr.message);
+      }
 
       toast.success("Pagamento cancelado. Título voltou para pendente.");
       setCancelBaixaItem(null);
