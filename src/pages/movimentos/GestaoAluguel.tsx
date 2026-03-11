@@ -1154,13 +1154,26 @@ export default function GestaoContratos() {
       <Dialog open={managementOpen} onOpenChange={setManagementOpen}>
         <DialogContent className="max-w-[98vw] w-full flex flex-col max-h-[90vh]">
           <DialogHeader className="shrink-0">
-            <DialogTitle>Cronograma de pagamentos</DialogTitle>
-            <DialogDescription>
-              Inq {managementContract?.tenants?.full_name} — R$ {managementContract ? formatMoney(managementContract.rent_value) : ""}/mês
-              {managementContract && managementContract.management_fee_percent > 0 && (
-                <> · Taxa: {managementContract.management_fee_percent}% · Repasse: R$ {formatMoney(managementContract.repasse_value)}</>
-              )}
-            </DialogDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <DialogTitle>Cronograma de pagamentos</DialogTitle>
+                <DialogDescription>
+                  Inq {managementContract?.tenants?.full_name} — R$ {managementContract ? formatMoney(managementContract.rent_value) : ""}/mês
+                  {managementContract && managementContract.management_fee_percent > 0 && (
+                    <> · Taxa: {managementContract.management_fee_percent}% · Repasse: R$ {formatMoney(managementContract.repasse_value)}</>
+                  )}
+                </DialogDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 shrink-0"
+                onClick={exportInstallmentsExcel}
+                disabled={loadingInst || installments.length === 0}
+              >
+                <Download className="h-4 w-4" /> Excel
+              </Button>
+            </div>
           </DialogHeader>
           <div className="overflow-auto flex-1">
             {loadingInst ? (
