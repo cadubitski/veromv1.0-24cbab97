@@ -617,6 +617,94 @@ export default function MovimentacaoBancaria() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ── View Dialog ────────────────────────────────────────────────────────── */}
+      <Dialog open={!!viewItem} onOpenChange={(o) => { if (!o) setViewItem(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-4 w-4 text-muted-foreground" />
+              Detalhes da Movimentação
+            </DialogTitle>
+            <DialogDescription>Informações completas do lançamento bancário.</DialogDescription>
+          </DialogHeader>
+
+          {viewItem && (
+            <div className="space-y-4 py-1">
+              {/* Tipo badge */}
+              <div className="flex items-center gap-2">
+                {viewItem.type === "credit" ? (
+                  <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-500 bg-emerald-500/10 rounded-full px-3 py-1">
+                    <TrendingUp className="h-4 w-4" /> Entrada
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-destructive bg-destructive/10 rounded-full px-3 py-1">
+                    <TrendingDown className="h-4 w-4" /> Saída
+                  </span>
+                )}
+                <span className={`text-xl font-bold ml-auto ${viewItem.type === "credit" ? "text-emerald-500" : "text-destructive"}`}>
+                  {viewItem.type === "credit" ? "+" : "-"}{fmt(viewItem.amount)}
+                </span>
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-0.5">Nº Documento</p>
+                  <p className="font-mono font-medium">{viewItem.document_number}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-0.5">Data</p>
+                  <p className="font-medium">{fmtDate(viewItem.transaction_date)}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground mb-0.5">Conta Bancária</p>
+                  <p className="font-medium">{viewItem.bank_accounts?.account_name}</p>
+                  <p className="text-xs text-muted-foreground">{viewItem.bank_accounts?.bank_code} — {viewItem.bank_accounts?.bank_name}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground mb-0.5">Descrição</p>
+                  <p className="font-medium">{viewItem.description}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-0.5">Origem</p>
+                  <p className="font-medium">
+                    {ORIGIN_TYPES.find(o => o.value === viewItem.origin_type)?.label ?? viewItem.origin_type}
+                  </p>
+                </div>
+                {viewItem.origin_id && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">ID de Origem</p>
+                    <p className="font-mono text-xs break-all text-muted-foreground">{viewItem.origin_id}</p>
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-0.5">Criado em</p>
+                  <p className="text-xs font-mono">{new Date(viewItem.created_at).toLocaleString("pt-BR")}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-0.5">Atualizado em</p>
+                  <p className="text-xs font-mono">{new Date(viewItem.updated_at).toLocaleString("pt-BR")}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground mb-0.5">ID do Registro</p>
+                  <p className="font-mono text-xs break-all text-muted-foreground">{viewItem.id}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewItem(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
