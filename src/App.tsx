@@ -24,6 +24,7 @@ import InformeRendimentos from "./pages/relatorios/InformeRendimentos";
 import ContasBancarias from "./pages/financeiro/ContasBancarias";
 import MovimentacaoBancaria from "./pages/financeiro/MovimentacaoBancaria";
 import ContasReceber from "./pages/financeiro/ContasReceber";
+import ContasPagar from "./pages/financeiro/ContasPagar";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({

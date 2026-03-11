@@ -38,6 +38,7 @@ export const userNav: NavItem[] = [
       { label: "Contas Bancárias",      href: "/financeiro/contas-bancarias",      permKey: "financeiro.contas-bancarias" },
       { label: "Movimentação Bancária",  href: "/financeiro/movimentacao-bancaria",  permKey: "financeiro.movimentacao-bancaria" },
       { label: "Contas a Receber",       href: "/financeiro/contas-receber",          permKey: "financeiro.contas-receber" },
+      { label: "Contas a Pagar",         href: "/financeiro/contas-pagar",            permKey: "financeiro.contas-pagar" },
     ],
   },
   {
