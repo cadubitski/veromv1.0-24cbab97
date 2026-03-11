@@ -467,6 +467,11 @@ export default function MovimentacaoBancaria() {
                         legendKeys={[]}
                         actions={[
                           {
+                            label: "Visualizar",
+                            icon: <Eye className="h-3.5 w-3.5" />,
+                            onClick: () => setViewItem(t),
+                          },
+                          {
                             label: "Excluir",
                             icon: <Trash2 className="h-3.5 w-3.5" />,
                             onClick: () => openDelete(t),
