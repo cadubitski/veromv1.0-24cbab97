@@ -39,6 +39,7 @@ interface BankTransaction {
   company_id: string;
   bank_account_id: string;
   transaction_date: string;
+  document_number: string;
   description: string;
   type: "credit" | "debit";
   amount: number;
@@ -49,7 +50,7 @@ interface BankTransaction {
   bank_accounts?: { account_name: string; bank_name: string; bank_code: string };
 }
 
-type SortKey = "transaction_date" | "description" | "amount" | "type";
+type SortKey = "transaction_date" | "description" | "amount" | "type" | "document_number";
 type SortDir = "asc" | "desc";
 
 const EMPTY_FORM = {
@@ -57,6 +58,7 @@ const EMPTY_FORM = {
   transaction_date: new Date().toISOString().slice(0, 10),
   type: "credit" as "credit" | "debit",
   amount: "",
+  document_number: "",
   description: "",
   origin_type: "manual",
 };
