@@ -26,6 +26,7 @@ const userNav: NavItem[] = [
       { label: "Imóveis", href: "/cadastros/imoveis" },
       { label: "Locatários", href: "/cadastros/inquilinos" },
       { label: "Tabela de IR", href: "/cadastros/tabela-ir" },
+      { label: "Contas Bancárias", href: "/financeiro/contas-bancarias" },
     ],
   },
   {
