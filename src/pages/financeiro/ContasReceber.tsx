@@ -472,9 +472,9 @@ export default function ContasReceber() {
                       <TableHead>Descrição</TableHead>
                       <TableHead>Vencimento</TableHead>
                       <TableHead>Valor</TableHead>
-                      <TableHead>Status</TableHead>
                       <TableHead>Origem</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
+                      <TableHead className="w-px whitespace-nowrap">Status</TableHead>
+                      <TableHead className="w-px whitespace-nowrap">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -484,38 +484,46 @@ export default function ContasReceber() {
                         <TableCell className="max-w-[200px] truncate text-muted-foreground">{item.description}</TableCell>
                         <TableCell className="whitespace-nowrap">{fmtDate(item.due_date)}</TableCell>
                         <TableCell className="whitespace-nowrap font-mono">{fmt(item.amount)}</TableCell>
-                        <TableCell>{statusBadge(item.status)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-xs">
                             {item.source_type === "manual" ? "Manual" : "Contrato"}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" title="Visualizar" onClick={() => openView(item)}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {canEdit(item) && (
-                              <Button variant="ghost" size="icon" title="Editar" onClick={() => openEdit(item)}>
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {canBaixa(item) && (
-                              <Button variant="ghost" size="icon" title="Registrar recebimento" className="text-emerald-600 hover:text-emerald-700" onClick={() => { setBaixaItem(item); setBaixaForm(emptyBaixa); }}>
-                                <ArrowDownCircle className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {canCancelBaixa(item) && (
-                              <Button variant="ghost" size="icon" title="Cancelar baixa" className="text-amber-600 hover:text-amber-700" onClick={() => setCancelBaixaItem(item)}>
-                                <RotateCcw className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {item.status !== "paid" && (
-                              <Button variant="ghost" size="icon" title="Excluir" className="text-destructive hover:text-destructive" onClick={() => setDeleteItem(item)}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
+                        <TableCell className="w-px whitespace-nowrap">
+                          <StatusDot status={item.status} />
+                        </TableCell>
+                        <TableCell className="w-px whitespace-nowrap">
+                          <ActionGear
+                            legendKeys={["pending", "paid", "cancelled"]}
+                            actions={[
+                              {
+                                label: "Visualizar",
+                                icon: <Eye className="h-4 w-4" />,
+                                onClick: () => openView(item),
+                              },
+                              ...(canEdit(item) ? [{
+                                label: "Editar",
+                                icon: <Pencil className="h-4 w-4" />,
+                                onClick: () => openEdit(item),
+                              }] : []),
+                              ...(canBaixa(item) ? [{
+                                label: "Registrar recebimento",
+                                icon: <ArrowDownCircle className="h-4 w-4" />,
+                                onClick: () => { setBaixaItem(item); setBaixaForm(emptyBaixa); },
+                              }] : []),
+                              ...(canCancelBaixa(item) ? [{
+                                label: "Cancelar baixa",
+                                icon: <RotateCcw className="h-4 w-4" />,
+                                onClick: () => setCancelBaixaItem(item),
+                              }] : []),
+                              ...(item.status !== "paid" ? [{
+                                label: "Excluir",
+                                icon: <Trash2 className="h-4 w-4" />,
+                                onClick: () => setDeleteItem(item),
+                                variant: "destructive" as const,
+                              }] : []),
+                            ]}
+                          />
                         </TableCell>
                       </TableRow>
                     ))}
