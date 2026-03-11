@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from "react";
-import { maskCurrency, parseCurrency } from "@/lib/masks";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -55,7 +54,6 @@ const EMPTY_FORM = {
   account_number: "",
   account_digit: "",
   account_name: "",
-  initial_balance: "",
   active: true,
   external_provider: "",
   external_account_id: "",
@@ -178,7 +176,6 @@ export default function ContasBancarias() {
       account_number: a.account_number,
       account_digit: a.account_digit ?? "",
       account_name: a.account_name,
-      initial_balance: String(a.initial_balance),
       active: a.active,
       external_provider: a.external_provider ?? "",
       external_account_id: a.external_account_id ?? "",
@@ -214,8 +211,6 @@ export default function ContasBancarias() {
     setSaving(true);
     setError(null);
 
-    const initial = parseCurrency(form.initial_balance) ?? 0;
-
     try {
       if (editAccount) {
         const { error: err } = await supabase
@@ -228,7 +223,6 @@ export default function ContasBancarias() {
             account_number: form.account_number,
             account_digit: form.account_digit || null,
             account_name: form.account_name,
-            initial_balance: initial,
             active: form.active,
             external_provider: form.external_provider || null,
             external_account_id: form.external_account_id || null,
@@ -248,8 +242,8 @@ export default function ContasBancarias() {
             account_number: form.account_number,
             account_digit: form.account_digit || null,
             account_name: form.account_name,
-            initial_balance: initial,
-            current_balance: initial,
+            initial_balance: 0,
+            current_balance: 0,
             active: form.active,
             external_provider: form.external_provider || null,
             external_account_id: form.external_account_id || null,
@@ -280,6 +274,20 @@ export default function ContasBancarias() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
+      // Verifica se existem movimentações vinculadas
+      const { count } = await supabase
+        .from("bank_transactions")
+        .select("id", { count: "exact", head: true })
+        .eq("bank_account_id", deleteTarget.id);
+
+      if (count && count > 0) {
+        toast.error(
+          `Não é possível excluir a conta "${deleteTarget.account_name}" pois ela possui ${count} movimentação(ões) bancária(s) vinculada(s). Desative a conta em vez de excluí-la.`
+        );
+        setDeleteDialogOpen(false);
+        return;
+      }
+
       const { error: err } = await supabase
         .from("bank_accounts")
         .delete()
@@ -541,23 +549,22 @@ export default function ContasBancarias() {
               />
             </div>
 
-            {/* Initial balance */}
-            <div className="space-y-2">
-              <FieldLabel
-                label="Saldo inicial"
-                tooltip="Saldo da conta no momento do cadastro. O saldo atual será iniciado com este valor."
-              />
-              <Input
-                value={form.initial_balance}
-                onChange={(e) => f("initial_balance", maskCurrency(e.target.value))}
-                placeholder="0,00"
-                inputMode="numeric"
-                disabled={!!editAccount}
-              />
-              {editAccount && (
-                <p className="text-xs text-muted-foreground">O saldo inicial não pode ser alterado após o cadastro.</p>
-              )}
-            </div>
+            {/* Current balance (read-only) */}
+            {editAccount && (
+              <div className="space-y-2">
+                <FieldLabel
+                  label="Saldo atual"
+                  tooltip="Saldo atual da conta. Atualizado automaticamente pelas movimentações bancárias."
+                />
+                <Input
+                  value={fmt(editAccount.current_balance)}
+                  readOnly
+                  disabled
+                  className="bg-muted/50 font-mono"
+                />
+                <p className="text-xs text-muted-foreground">O saldo é atualizado automaticamente pelas movimentações.</p>
+              </div>
+            )}
 
             {/* Status */}
             <div className="space-y-2">
