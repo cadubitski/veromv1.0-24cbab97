@@ -47,6 +47,7 @@ interface BankTransaction {
   amount: number;
   origin_type: string;
   origin_id: string | null;
+  payment_method: string | null;
   created_at: string;
   updated_at: string;
   bank_accounts?: { account_name: string; bank_name: string; bank_code: string };
