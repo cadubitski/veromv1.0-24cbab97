@@ -170,7 +170,7 @@ export default function InformeRendimentos() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Informe de Rendimentos do Proprietário</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Demonstrativo anual de rendimentos de locação para entrega ao proprietário (declaração de IR).
+              Demonstrativo anual de rendimentos de locação para entrega ao proprietário (declaração de IR). <span className="font-medium text-primary">Regime de caixa</span>: considera a data efetiva de recebimento (baixa do título).
             </p>
           </div>
           {searched && rows.length > 0 && (

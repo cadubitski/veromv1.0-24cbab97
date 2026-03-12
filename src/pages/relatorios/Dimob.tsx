@@ -172,7 +172,7 @@ export default function Dimob() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">DIMOB Anual</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Demonstrativo de aluguel recebido por proprietário — base para declaração DIMOB à Receita Federal.
+              Demonstrativo de aluguel recebido por proprietário — base para declaração DIMOB à Receita Federal. <span className="font-medium text-primary">Regime de caixa</span>: considera a data efetiva de recebimento (baixa do título).
             </p>
           </div>
           {searched && rows.length > 0 && (
