@@ -692,6 +692,7 @@ export type Database = {
           management_fee_value: number | null
           property_id: string
           rent_value: number
+          repasse_days_after_receipt: number
           repasse_value: number | null
           start_date: string
           status: string
@@ -709,6 +710,7 @@ export type Database = {
           management_fee_value?: number | null
           property_id: string
           rent_value: number
+          repasse_days_after_receipt?: number
           repasse_value?: number | null
           start_date: string
           status?: string
@@ -726,6 +728,7 @@ export type Database = {
           management_fee_value?: number | null
           property_id?: string
           rent_value?: number
+          repasse_days_after_receipt?: number
           repasse_value?: number | null
           start_date?: string
           status?: string
@@ -773,6 +776,7 @@ export type Database = {
           management_fee_value: number | null
           owner_net_value: number | null
           paid_at: string | null
+          repasse_accounts_payable_id: string | null
           repasse_value: number | null
           status: string
           tax_base_value: number | null
@@ -795,6 +799,7 @@ export type Database = {
           management_fee_value?: number | null
           owner_net_value?: number | null
           paid_at?: string | null
+          repasse_accounts_payable_id?: string | null
           repasse_value?: number | null
           status?: string
           tax_base_value?: number | null
@@ -817,6 +822,7 @@ export type Database = {
           management_fee_value?: number | null
           owner_net_value?: number | null
           paid_at?: string | null
+          repasse_accounts_payable_id?: string | null
           repasse_value?: number | null
           status?: string
           tax_base_value?: number | null
@@ -836,6 +842,13 @@ export type Database = {
             columns: ["contract_id"]
             isOneToOne: false
             referencedRelation: "rental_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_installments_repasse_accounts_payable_id_fkey"
+            columns: ["repasse_accounts_payable_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable"
             referencedColumns: ["id"]
           },
         ]
