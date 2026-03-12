@@ -72,26 +72,29 @@ export default function InformeRendimentos() {
     setLoading(true);
     setSearched(false);
 
+    // Regime de caixa: buscar parcelas com contas_receber pago no ano selecionado
     const { data } = await supabase
       .from("rental_installments")
       .select(`
         id, competence, due_date, value,
-        management_fee_value, tax_base_value, irrf_value, owner_net_value, repasse_value, status,
+        management_fee_value, tax_base_value, irrf_value, owner_net_value, repasse_value,
+        accounts_receivable_id,
+        accounts_receivable:accounts_receivable_id(id, paid_at, status),
         rental_contracts(
           code, property_id,
           properties(code, address, client_id)
         )
-      `)
-      .eq("status", "pago");
+      `);
 
     const yearStr = year;
 
     const filtered = ((data ?? []) as any[]).filter((r) => {
-      // Filter by year
-      const parts = (r.competence ?? "").split("/");
-      const compYear = parts.length === 2 ? parts[1] : parts[0];
-      if (compYear !== yearStr) return false;
-      // Filter by owner (client_id on property)
+      // Regime de caixa: considerar apenas títulos efetivamente recebidos (paid_at no ano selecionado)
+      const ar = r.accounts_receivable;
+      if (!ar || ar.status !== "paid") return false;
+      const paidYear = ar.paid_at ? String(new Date(ar.paid_at).getFullYear()) : null;
+      if (paidYear !== yearStr) return false;
+      // Filtrar pelo proprietário (client_id no imóvel)
       const clientId = r.rental_contracts?.properties?.client_id;
       return clientId === ownerId;
     });

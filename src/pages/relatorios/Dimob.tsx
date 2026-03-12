@@ -44,25 +44,27 @@ export default function Dimob() {
     setLoading(true);
     setSearched(false);
 
-    // Buscar parcelas pagas no ano selecionado
+    // Regime de caixa: buscar parcelas cujo contas_receber foi pago no ano selecionado
     const { data } = await supabase
       .from("rental_installments")
       .select(`
         id, competence, value,
-        management_fee_value, irrf_value, owner_net_value, repasse_value, status,
+        management_fee_value, irrf_value, owner_net_value, repasse_value,
+        accounts_receivable_id,
+        accounts_receivable:accounts_receivable_id(id, paid_at, status),
         rental_contracts(
           id, property_id,
           properties(code, clients(id, full_name, document, person_type))
         )
-      `)
-      .eq("status", "pago");
+      `);
 
     const yearStr = year;
     const filtered = ((data ?? []) as any[]).filter((r) => {
-      // competence format "MM/YYYY"
-      const parts = (r.competence ?? "").split("/");
-      const compYear = parts.length === 2 ? parts[1] : parts[0];
-      return compYear === yearStr;
+      // Regime de caixa: considerar apenas títulos efetivamente recebidos (paid_at no ano selecionado)
+      const ar = r.accounts_receivable;
+      if (!ar || ar.status !== "paid") return false;
+      const paidYear = ar.paid_at ? String(new Date(ar.paid_at).getFullYear()) : null;
+      return paidYear === yearStr;
     });
 
     // Group by owner
