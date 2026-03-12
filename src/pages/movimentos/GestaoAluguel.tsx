@@ -434,6 +434,22 @@ export default function GestaoContratos() {
   };
 
   const openEdit = async (c: Contract) => {
+    // Check if any installment already has a generated (or paid) title
+    const { data: blockedInsts } = await supabase
+      .from("rental_installments")
+      .select("id")
+      .eq("contract_id", c.id)
+      .neq("financial_status", "pending")
+      .limit(1);
+
+    if (blockedInsts && blockedInsts.length > 0) {
+      toast.error(
+        "Não é possível editar este contrato pois já existem títulos de Contas a Receber gerados. Para editar, utilize a opção 'Reabrir pendentes' no cronograma de pagamentos para desfazer os títulos não pagos primeiro.",
+        { duration: 6000 }
+      );
+      return;
+    }
+
     await loadDropdowns(c.id);
     setEditContract(c);
     setForm({
