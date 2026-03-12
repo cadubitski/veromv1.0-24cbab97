@@ -51,6 +51,7 @@ interface Contract {
   management_fee_percent: number;
   management_fee_value: number;
   repasse_value: number;
+  repasse_days_after_receipt: number;
   created_at: string;
   tenants?: Tenant;
   properties?: Property & { clients?: { full_name: string } };
@@ -75,6 +76,7 @@ interface Installment {
   paid_at: string | null;
   financial_status: string;
   accounts_receivable_id: string | null;
+  repasse_accounts_payable_id: string | null;
 }
 
 type SortKey = "code" | "tenant_name" | "property_code" | "rent_value" | "start_date" | "due_day" | "status";
@@ -120,6 +122,8 @@ const INST_LABELS: Record<string, string> = {
 
 // Financial status badge for installments
 const FinancialStatusBadge = ({ status }: { status: string }) => {
+  if (status === "repasse_paid") return <Badge className="bg-emerald-700/15 text-emerald-700 border-emerald-700/25 text-xs font-normal">Repasse Efetuado</Badge>;
+  if (status === "repasse_generated") return <Badge className="bg-violet-500/15 text-violet-600 border-violet-500/25 text-xs font-normal">Repasse Gerado</Badge>;
   if (status === "paid") return <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/25 text-xs font-normal">Pago</Badge>;
   if (status === "generated") return <Badge className="bg-blue-500/15 text-blue-600 border-blue-500/25 text-xs font-normal">CR Gerado</Badge>;
   if (status === "cancelled") return <Badge variant="destructive" className="bg-destructive/10 text-destructive border-destructive/20 text-xs font-normal">Cancelado</Badge>;
@@ -280,6 +284,7 @@ export default function GestaoContratos() {
     due_day: "10",
     duration_months: "12",
     management_fee_percent: "0",
+    repasse_days_after_receipt: "5",
   });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -423,7 +428,7 @@ export default function GestaoContratos() {
   const openCreate = async () => {
     await loadDropdowns();
     setEditContract(null);
-    setForm({ code: "", tenant_id: "", property_id: "", rent_value: "", start_date: "", due_day: "10", duration_months: "12", management_fee_percent: "0" });
+    setForm({ code: "", tenant_id: "", property_id: "", rent_value: "", start_date: "", due_day: "10", duration_months: "12", management_fee_percent: "0", repasse_days_after_receipt: "5" });
     setFormError(null);
     setDialogOpen(true);
   };
@@ -440,6 +445,7 @@ export default function GestaoContratos() {
       due_day: String(c.due_day),
       duration_months: String(c.duration_months),
       management_fee_percent: String(c.management_fee_percent ?? 0),
+      repasse_days_after_receipt: String(c.repasse_days_after_receipt ?? 5),
     });
     setFormError(null);
     setDialogOpen(true);
@@ -590,6 +596,7 @@ export default function GestaoContratos() {
         const oldDueDay = editContract.due_day;
         const feeValEdit = rentVal * feeP / 100;
         const repasseValEdit = rentVal - feeValEdit;
+        const repDaysEdit = parseInt(form.repasse_days_after_receipt) || 5;
         const { error: err } = await supabase.from("rental_contracts").update({
           code: form.code.trim() || null,
           tenant_id: form.tenant_id, property_id: form.property_id,
@@ -598,6 +605,7 @@ export default function GestaoContratos() {
           management_fee_percent: feeP,
           management_fee_value: feeValEdit,
           repasse_value: repasseValEdit,
+          repasse_days_after_receipt: repDaysEdit,
           updated_at: new Date().toISOString(),
         }).eq("id", editContract.id);
         if (err) throw err;
@@ -631,6 +639,7 @@ export default function GestaoContratos() {
 
         const feeValContract = rentVal * feeP / 100;
         const repasseValContract = rentVal - feeValContract;
+        const repDaysCreate = parseInt(form.repasse_days_after_receipt) || 5;
         const { data, error: err } = await supabase.from("rental_contracts").insert({
           company_id: company.id,
           code: form.code.trim() || null,
@@ -643,6 +652,7 @@ export default function GestaoContratos() {
           management_fee_percent: feeP,
           management_fee_value: feeValContract,
           repasse_value: repasseValContract,
+          repasse_days_after_receipt: repDaysCreate,
           status: "ativo",
         }).select("id").single();
         if (err) throw err;
@@ -1254,6 +1264,10 @@ export default function GestaoContratos() {
             <div className="space-y-2">
               <FieldLabel label="Período (meses)" tooltip="Duração total do contrato em meses." required />
               <Input type="number" min={1} value={form.duration_months} onChange={(e) => setForm((p) => ({ ...p, duration_months: e.target.value }))} placeholder="12" />
+            </div>
+            <div className="space-y-2">
+              <FieldLabel label="Prazo para repasse (dias)" tooltip="Número de dias após o recebimento do aluguel para realizar o repasse ao proprietário. Ex: 5 = repasse vence 5 dias após o recebimento." />
+              <Input type="number" min={0} max={90} value={form.repasse_days_after_receipt} onChange={(e) => setForm((p) => ({ ...p, repasse_days_after_receipt: e.target.value }))} placeholder="5" />
             </div>
             {formError && <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{formError}</div>}
           </div>
