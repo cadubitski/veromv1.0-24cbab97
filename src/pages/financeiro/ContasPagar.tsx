@@ -434,15 +434,31 @@ export default function ContasPagar() {
   const totalCancelled = items.filter((i) => i.status === "cancelled").reduce((s, i) => s + i.amount, 0);
   const totalAll       = items.reduce((s, i) => s + i.amount, 0);
 
-  // ── Filtered ───────────────────────────────────────────────────────────────
-  const filtered = items.filter((i) => {
-    const matchSearch =
-      i.description.toLowerCase().includes(search.toLowerCase()) ||
-      i.document_number.toLowerCase().includes(search.toLowerCase()) ||
-      (i.vendor_name ?? "").toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filterStatus === "all" || i.status === filterStatus;
-    return matchSearch && matchStatus;
-  });
+  // ── Filtered + Sorted ──────────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    const base = items.filter((i) => {
+      const matchSearch =
+        i.description.toLowerCase().includes(search.toLowerCase()) ||
+        i.document_number.toLowerCase().includes(search.toLowerCase()) ||
+        (i.vendor_name ?? "").toLowerCase().includes(search.toLowerCase());
+      const matchStatus = filterStatus === "all" || i.status === filterStatus;
+      return matchSearch && matchStatus;
+    });
+    return [...base].sort((a, b) => {
+      const va = sortKey === "amount"
+        ? a.amount
+        : ((a[sortKey as keyof typeof a] ?? "") as string);
+      const vb = sortKey === "amount"
+        ? b.amount
+        : ((b[sortKey as keyof typeof b] ?? "") as string);
+      if (typeof va === "number" && typeof vb === "number") {
+        return sortDir === "asc" ? va - vb : vb - va;
+      }
+      return sortDir === "asc"
+        ? String(va).localeCompare(String(vb))
+        : String(vb).localeCompare(String(va));
+    });
+  }, [items, search, filterStatus, sortKey, sortDir]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   const canEdit = (item: Payable) => item.source_type === "manual" && item.status === "pending";
