@@ -1281,7 +1281,7 @@ export default function GestaoContratos() {
                 </DialogDescription>
               </div>
               <div className="flex gap-2 shrink-0 flex-wrap justify-end">
-                {installments.some((i) => i.financial_status === "generated") && managementContract?.status === "ativo" && (
+                {installments.some((i) => i.financial_status === "generated") && managementContract?.status === "ativo" && role === "admin" && (
                   <Button
                     variant="outline"
                     size="sm"
