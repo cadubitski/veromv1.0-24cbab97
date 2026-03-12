@@ -69,6 +69,7 @@ const App = () => (
             <Route path="/relatorios/financeiro/baixas-receber" element={<ProtectedRoute><RelBaixasContasReceber /></ProtectedRoute>} />
             <Route path="/relatorios/financeiro/contas-pagar" element={<ProtectedRoute><RelContasPagar /></ProtectedRoute>} />
             <Route path="/relatorios/financeiro/baixas-pagar" element={<ProtectedRoute><RelBaixasContasPagar /></ProtectedRoute>} />
+            <Route path="/relatorios/financeiro/conta-corrente-prop" element={<ProtectedRoute><RelContaCorrenteProprietario /></ProtectedRoute>} />
             <Route path="/financeiro/contas-bancarias" element={<ProtectedRoute><ContasBancarias /></ProtectedRoute>} />
             <Route path="/financeiro/movimentacao-bancaria" element={<ProtectedRoute><MovimentacaoBancaria /></ProtectedRoute>} />
             <Route path="/financeiro/contas-receber" element={<ProtectedRoute><ContasReceber /></ProtectedRoute>} />
