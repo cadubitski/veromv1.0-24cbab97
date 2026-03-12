@@ -9,10 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Printer, FileDown, Search, X, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
+import { Printer, FileDown, Search, X, TrendingUp, TrendingDown, DollarSign, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import * as XLSX from "xlsx";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import ColumnSelector, { ColumnDef } from "@/components/ColumnSelector";
 
 const fmtDate = (d: string | null) => {
   if (!d) return "-";
@@ -24,6 +25,7 @@ const fmtMoney = (v: number) =>
 interface StatementRow {
   contract_id: string;
   owner_id: string;
+  owner_name: string;
   installment_id: string;
   event_date: string | null;
   description: string;
@@ -33,6 +35,19 @@ interface StatementRow {
   event_type: string;
 }
 
+const ALL_COLUMNS: ColumnDef[] = [
+  { key: "data",        label: "Data",             defaultVisible: true },
+  { key: "proprietario",label: "Proprietário",     defaultVisible: true },
+  { key: "descricao",   label: "Descrição",        defaultVisible: true },
+  { key: "contrato",    label: "Contrato",         defaultVisible: true },
+  { key: "entrada",     label: "Entrada",          defaultVisible: true },
+  { key: "saida",       label: "Saída",            defaultVisible: true },
+  { key: "saldo",       label: "Saldo Acumulado",  defaultVisible: true },
+];
+
+type SortKey = "data" | "proprietario" | "descricao" | "contrato" | "entrada" | "saida" | "saldo";
+type SortDir = "asc" | "desc";
+
 export default function RelContaCorrenteProprietario() {
   const { profile } = useAuth();
   const companyId = profile?.company_id;
@@ -41,6 +56,23 @@ export default function RelContaCorrenteProprietario() {
   const [dateTo, setDateTo] = useState("");
   const [filterOwner, setFilterOwner] = useState("all");
   const [filterContract, setFilterContract] = useState("all");
+  const [sortKey, setSortKey] = useState<SortKey>("data");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [visibleCols, setVisibleCols] = useState<Set<string>>(
+    () => new Set(ALL_COLUMNS.filter((c) => c.defaultVisible !== false).map((c) => c.key))
+  );
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ArrowUpDown className="ml-1 h-3 w-3 inline opacity-40" />;
+    return sortDir === "asc"
+      ? <ArrowUp className="ml-1 h-3 w-3 inline text-primary" />
+      : <ArrowDown className="ml-1 h-3 w-3 inline text-primary" />;
+  };
 
   // Buscar proprietários (clients)
   const { data: owners = [] } = useQuery({
@@ -71,13 +103,12 @@ export default function RelContaCorrenteProprietario() {
     },
   });
 
-  // Buscar dados da view vw_owner_statement via query direta nas tabelas
+  // Buscar dados
   const { data: rawRows = [], isFetching } = useQuery({
     queryKey: ["owner_statement", companyId, dateFrom, dateTo],
     enabled: !!companyId,
     queryFn: async () => {
-      // Evento 1: Aluguel recebido
-      let q1 = supabase
+      const q1 = supabase
         .from("rental_installments")
         .select(`
           id,
@@ -104,10 +135,7 @@ export default function RelContaCorrenteProprietario() {
         .in("financial_status", ["paid", "repasse_generated", "repasse_paid"])
         .not("accounts_receivable_id", "is", null);
 
-      const { data: inst1 } = await q1;
-
-      // Evento 2: Repasse pago
-      let q2 = supabase
+      const q2 = supabase
         .from("rental_installments")
         .select(`
           id,
@@ -133,11 +161,10 @@ export default function RelContaCorrenteProprietario() {
         .eq("financial_status", "repasse_paid")
         .not("repasse_accounts_payable_id", "is", null);
 
-      const { data: inst2 } = await q2;
+      const [{ data: inst1 }, { data: inst2 }] = await Promise.all([q1, q2]);
 
       const rows: StatementRow[] = [];
 
-      // Processar eventos tipo 1
       (inst1 ?? []).forEach((ri: any) => {
         const ar = ri.accounts_receivable;
         if (!ar?.paid_at) return;
@@ -146,6 +173,7 @@ export default function RelContaCorrenteProprietario() {
         rows.push({
           contract_id: rc?.id ?? "",
           owner_id: prop?.client_id ?? "",
+          owner_name: prop?.clients?.full_name ?? "",
           installment_id: ri.id,
           event_date: ar.paid_at,
           description: "Aluguel recebido",
@@ -156,7 +184,6 @@ export default function RelContaCorrenteProprietario() {
         });
       });
 
-      // Processar eventos tipo 2
       (inst2 ?? []).forEach((ri: any) => {
         const ap = ri.accounts_payable;
         if (!ap?.paid_at) return;
@@ -165,6 +192,7 @@ export default function RelContaCorrenteProprietario() {
         rows.push({
           contract_id: rc?.id ?? "",
           owner_id: prop?.client_id ?? "",
+          owner_name: prop?.clients?.full_name ?? "",
           installment_id: ri.id,
           event_date: ap.paid_at,
           description: "Repasse ao proprietário",
@@ -175,13 +203,12 @@ export default function RelContaCorrenteProprietario() {
         });
       });
 
-      // Ordenar por data
       rows.sort((a, b) => (a.event_date ?? "").localeCompare(b.event_date ?? ""));
       return rows;
     },
   });
 
-  // Filtros aplicados
+  // Filtros
   const filtered = useMemo(() => {
     return rawRows.filter((r) => {
       if (filterOwner !== "all" && r.owner_id !== filterOwner) return false;
@@ -192,7 +219,7 @@ export default function RelContaCorrenteProprietario() {
     });
   }, [rawRows, filterOwner, filterContract, dateFrom, dateTo]);
 
-  // Saldo acumulado calculado na aplicação
+  // Saldo acumulado (antes de ordenar)
   const rowsWithBalance = useMemo(() => {
     let saldo = 0;
     return filtered.map((r) => {
@@ -201,17 +228,37 @@ export default function RelContaCorrenteProprietario() {
     });
   }, [filtered]);
 
+  // Ordenação
+  const sortedRows = useMemo(() => {
+    return [...rowsWithBalance].sort((a, b) => {
+      let av: any, bv: any;
+      switch (sortKey) {
+        case "data":         av = a.event_date ?? ""; bv = b.event_date ?? ""; break;
+        case "proprietario": av = a.owner_name;       bv = b.owner_name;       break;
+        case "descricao":    av = a.description;      bv = b.description;      break;
+        case "contrato":
+          av = contracts.find((c: any) => c.id === a.contract_id)?.code ?? "";
+          bv = contracts.find((c: any) => c.id === b.contract_id)?.code ?? "";
+          break;
+        case "entrada":      av = a.entrada;          bv = b.entrada;          break;
+        case "saida":        av = a.saida;            bv = b.saida;            break;
+        case "saldo":        av = a.saldo;            bv = b.saldo;            break;
+        default:             av = ""; bv = "";
+      }
+      if (typeof av === "number") return sortDir === "asc" ? av - bv : bv - av;
+      return sortDir === "asc"
+        ? String(av).localeCompare(String(bv), "pt-BR")
+        : String(bv).localeCompare(String(av), "pt-BR");
+    });
+  }, [rowsWithBalance, sortKey, sortDir, contracts]);
+
   const totalEntrada = filtered.reduce((s, r) => s + r.entrada, 0);
   const totalSaida = filtered.reduce((s, r) => s + r.saida, 0);
   const saldoFinal = totalEntrada - totalSaida;
 
-  // Mapa de contratos filtrados pelo proprietário selecionado
   const contractsForOwner = useMemo(() => {
     if (filterOwner === "all") return contracts;
-    return contracts.filter((c: any) => {
-      const clientId = c.properties?.client_id;
-      return clientId === filterOwner;
-    });
+    return contracts.filter((c: any) => c.properties?.client_id === filterOwner);
   }, [contracts, filterOwner]);
 
   const ownerName = useMemo(() => {
@@ -220,26 +267,38 @@ export default function RelContaCorrenteProprietario() {
   }, [owners, filterOwner]);
 
   const hasFilters = dateFrom || dateTo || filterOwner !== "all" || filterContract !== "all";
-
   const clearFilters = () => {
     setDateFrom(""); setDateTo(""); setFilterOwner("all"); setFilterContract("all");
   };
 
   const handleExcel = () => {
-    const rows = rowsWithBalance.map((r) => ({
-      "Data": fmtDate(r.event_date),
-      "Descrição": r.description,
-      "Proprietário": owners.find((o: any) => o.id === r.owner_id)?.full_name ?? r.owner_id,
-      "Contrato": contracts.find((c: any) => c.id === r.contract_id)?.code ?? r.contract_id,
-      "Entrada (R$)": r.entrada > 0 ? r.entrada : "",
-      "Saída (R$)": r.saida > 0 ? r.saida : "",
-      "Saldo Acumulado (R$)": r.saldo,
-    }));
+    const colMap: Record<string, (r: typeof sortedRows[0]) => any> = {
+      data:         (r) => fmtDate(r.event_date),
+      proprietario: (r) => r.owner_name,
+      descricao:    (r) => r.description,
+      contrato:     (r) => contracts.find((c: any) => c.id === r.contract_id)?.code ?? "",
+      entrada:      (r) => r.entrada > 0 ? r.entrada : "",
+      saida:        (r) => r.saida > 0 ? r.saida : "",
+      saldo:        (r) => r.saldo,
+    };
+    const labelMap: Record<string, string> = {
+      data: "Data", proprietario: "Proprietário", descricao: "Descrição",
+      contrato: "Contrato", entrada: "Entrada (R$)", saida: "Saída (R$)", saldo: "Saldo Acumulado (R$)",
+    };
+    const rows = sortedRows.map((r) => {
+      const obj: Record<string, any> = {};
+      ALL_COLUMNS.filter((c) => visibleCols.has(c.key)).forEach((c) => {
+        obj[labelMap[c.key]] = colMap[c.key](r);
+      });
+      return obj;
+    });
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Conta Corrente");
     XLSX.writeFile(wb, `conta-corrente-proprietario-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
   };
+
+  const thClass = "px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-foreground transition-colors";
 
   return (
     <DashboardLayout>
@@ -253,6 +312,7 @@ export default function RelContaCorrenteProprietario() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <ColumnSelector columns={ALL_COLUMNS} visible={visibleCols} onChange={setVisibleCols} />
             <Button variant="outline" size="sm" onClick={handleExcel}>
               <FileDown className="h-4 w-4 mr-1.5" />Excel
             </Button>
@@ -312,21 +372,11 @@ export default function RelContaCorrenteProprietario() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Data Inicial</Label>
-              <Input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="h-8 text-sm"
-              />
+              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 text-sm" />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Data Final</Label>
-              <Input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="h-8 text-sm"
-              />
+              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 text-sm" />
             </div>
           </CardContent>
         </Card>
@@ -374,7 +424,7 @@ export default function RelContaCorrenteProprietario() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold">
-              {rowsWithBalance.length} registro(s) encontrado(s)
+              {sortedRows.length} registro(s) encontrado(s)
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -382,92 +432,149 @@ export default function RelContaCorrenteProprietario() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/40">
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Data</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Descrição</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Contrato</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Entrada</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Saída</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Saldo Acumulado</th>
+                    {visibleCols.has("data") && (
+                      <th className={thClass} onClick={() => handleSort("data")}>
+                        Data <SortIcon col="data" />
+                      </th>
+                    )}
+                    {visibleCols.has("proprietario") && (
+                      <th className={thClass} onClick={() => handleSort("proprietario")}>
+                        Proprietário <SortIcon col="proprietario" />
+                      </th>
+                    )}
+                    {visibleCols.has("descricao") && (
+                      <th className={thClass} onClick={() => handleSort("descricao")}>
+                        Descrição <SortIcon col="descricao" />
+                      </th>
+                    )}
+                    {visibleCols.has("contrato") && (
+                      <th className={thClass} onClick={() => handleSort("contrato")}>
+                        Contrato <SortIcon col="contrato" />
+                      </th>
+                    )}
+                    {visibleCols.has("entrada") && (
+                      <th className={`${thClass} text-right`} onClick={() => handleSort("entrada")}>
+                        Entrada <SortIcon col="entrada" />
+                      </th>
+                    )}
+                    {visibleCols.has("saida") && (
+                      <th className={`${thClass} text-right`} onClick={() => handleSort("saida")}>
+                        Saída <SortIcon col="saida" />
+                      </th>
+                    )}
+                    {visibleCols.has("saldo") && (
+                      <th className={`${thClass} text-right`} onClick={() => handleSort("saldo")}>
+                        Saldo Acumulado <SortIcon col="saldo" />
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
                   {isFetching ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">Carregando...</td>
+                      <td colSpan={visibleCols.size} className="px-4 py-8 text-center text-muted-foreground">Carregando...</td>
                     </tr>
-                  ) : rowsWithBalance.length === 0 ? (
+                  ) : sortedRows.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                      <td colSpan={visibleCols.size} className="px-4 py-8 text-center text-muted-foreground">
                         Nenhum evento encontrado com os filtros aplicados.
                       </td>
                     </tr>
                   ) : (
-                    rowsWithBalance.map((r, idx) => {
+                    sortedRows.map((r, idx) => {
                       const contractCode = contracts.find((c: any) => c.id === r.contract_id)?.code ?? r.contract_id.slice(0, 8);
                       return (
                         <tr
                           key={`${r.installment_id}-${r.event_type}`}
                           className={`border-b transition-colors hover:bg-muted/30 ${idx % 2 === 0 ? "" : "bg-muted/10"}`}
                         >
-                          <td className="px-4 py-2.5 align-middle whitespace-nowrap text-foreground/90">
-                            {fmtDate(r.event_date)}
-                          </td>
-                          <td className="px-4 py-2.5 align-middle">
-                            <Badge
-                              variant="outline"
-                              className={`text-xs ${
-                                r.event_type === "rent_received"
-                                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
-                                  : "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30"
-                              }`}
-                            >
-                              {r.description}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-2.5 align-middle whitespace-nowrap text-foreground/90">
-                            {contractCode}
-                          </td>
-                          <td className="px-4 py-2.5 align-middle text-right whitespace-nowrap">
-                            {r.entrada > 0 ? (
-                              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                                +{fmtMoney(r.entrada)}
+                          {visibleCols.has("data") && (
+                            <td className="px-4 py-2.5 align-middle whitespace-nowrap text-foreground/90">
+                              {fmtDate(r.event_date)}
+                            </td>
+                          )}
+                          {visibleCols.has("proprietario") && (
+                            <td className="px-4 py-2.5 align-middle whitespace-nowrap text-foreground/90 font-medium">
+                              {r.owner_name || "—"}
+                            </td>
+                          )}
+                          {visibleCols.has("descricao") && (
+                            <td className="px-4 py-2.5 align-middle">
+                              <Badge
+                                variant="outline"
+                                className={`text-xs ${
+                                  r.event_type === "rent_received"
+                                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                                    : "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30"
+                                }`}
+                              >
+                                {r.description}
+                              </Badge>
+                            </td>
+                          )}
+                          {visibleCols.has("contrato") && (
+                            <td className="px-4 py-2.5 align-middle whitespace-nowrap text-foreground/90">
+                              {contractCode}
+                            </td>
+                          )}
+                          {visibleCols.has("entrada") && (
+                            <td className="px-4 py-2.5 align-middle text-right whitespace-nowrap">
+                              {r.entrada > 0 ? (
+                                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                                  +{fmtMoney(r.entrada)}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground/40">—</span>
+                              )}
+                            </td>
+                          )}
+                          {visibleCols.has("saida") && (
+                            <td className="px-4 py-2.5 align-middle text-right whitespace-nowrap">
+                              {r.saida > 0 ? (
+                                <span className="font-semibold text-rose-600 dark:text-rose-400">
+                                  -{fmtMoney(r.saida)}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground/40">—</span>
+                              )}
+                            </td>
+                          )}
+                          {visibleCols.has("saldo") && (
+                            <td className="px-4 py-2.5 align-middle text-right whitespace-nowrap">
+                              <span className={`font-bold ${r.saldo >= 0 ? "text-primary" : "text-amber-600 dark:text-amber-400"}`}>
+                                {fmtMoney(r.saldo)}
                               </span>
-                            ) : (
-                              <span className="text-muted-foreground/40">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-2.5 align-middle text-right whitespace-nowrap">
-                            {r.saida > 0 ? (
-                              <span className="font-semibold text-rose-600 dark:text-rose-400">
-                                -{fmtMoney(r.saida)}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground/40">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-2.5 align-middle text-right whitespace-nowrap">
-                            <span className={`font-bold ${r.saldo >= 0 ? "text-primary" : "text-amber-600 dark:text-amber-400"}`}>
-                              {fmtMoney(r.saldo)}
-                            </span>
-                          </td>
+                            </td>
+                          )}
                         </tr>
                       );
                     })
                   )}
                 </tbody>
-                {rowsWithBalance.length > 0 && (
+                {sortedRows.length > 0 && (
                   <tfoot>
                     <tr className="border-t-2 bg-muted/30 font-semibold">
-                      <td className="px-4 py-3 text-sm text-muted-foreground" colSpan={3}>TOTAIS</td>
-                      <td className="px-4 py-3 text-sm text-right text-emerald-600 dark:text-emerald-400">
-                        +{fmtMoney(totalEntrada)}
+                      <td
+                        className="px-4 py-3 text-sm text-muted-foreground"
+                        colSpan={Math.max(1, visibleCols.size - (visibleCols.has("entrada") ? 1 : 0) - (visibleCols.has("saida") ? 1 : 0) - (visibleCols.has("saldo") ? 1 : 0))}
+                      >
+                        TOTAIS
                       </td>
-                      <td className="px-4 py-3 text-sm text-right text-rose-600 dark:text-rose-400">
-                        -{fmtMoney(totalSaida)}
-                      </td>
-                      <td className={`px-4 py-3 text-sm text-right font-bold ${saldoFinal >= 0 ? "text-primary" : "text-amber-600 dark:text-amber-400"}`}>
-                        {fmtMoney(saldoFinal)}
-                      </td>
+                      {visibleCols.has("entrada") && (
+                        <td className="px-4 py-3 text-sm text-right text-emerald-600 dark:text-emerald-400">
+                          +{fmtMoney(totalEntrada)}
+                        </td>
+                      )}
+                      {visibleCols.has("saida") && (
+                        <td className="px-4 py-3 text-sm text-right text-rose-600 dark:text-rose-400">
+                          -{fmtMoney(totalSaida)}
+                        </td>
+                      )}
+                      {visibleCols.has("saldo") && (
+                        <td className={`px-4 py-3 text-sm text-right font-bold ${saldoFinal >= 0 ? "text-primary" : "text-amber-600 dark:text-amber-400"}`}>
+                          {fmtMoney(saldoFinal)}
+                        </td>
+                      )}
                     </tr>
                   </tfoot>
                 )}
