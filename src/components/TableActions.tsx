@@ -91,7 +91,7 @@ export function ActionGear({ actions, legendKeys }: ActionGearProps) {
           <Settings2 className="h-3.5 w-3.5" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent align="end" side="bottom" avoidCollisions collisionPadding={8} className="w-48 max-h-[80vh] overflow-y-auto">
         {actions.map((action, idx) => (
           <DropdownMenuItem
             key={idx}
