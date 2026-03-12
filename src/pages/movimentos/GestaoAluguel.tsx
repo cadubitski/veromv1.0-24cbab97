@@ -627,25 +627,101 @@ export default function GestaoContratos() {
         if (err) throw err;
         contractId = editContract.id;
 
-        if (dueDay !== oldDueDay) {
-          const { data: unpaid } = await supabase.from("rental_installments")
-            .select("id, due_date")
-            .eq("contract_id", contractId)
-            .neq("status", "pago");
-          if (unpaid && unpaid.length > 0) {
-            const updates = unpaid.map((inst: any) => {
-              const dt = parseISO(inst.due_date);
-              const lastDay = new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
-              const newDay = Math.min(dueDay, lastDay);
-              return supabase.from("rental_installments").update({
-                due_date: format(setDate(dt, newDay), "yyyy-MM-dd"),
-                updated_at: new Date().toISOString(),
-              }).eq("id", inst.id);
-            });
-            await Promise.all(updates);
-          }
+        // Delete all pending installments and regenerate from scratch with new contract data
+        const { data: pendingInstIds } = await supabase
+          .from("rental_installments")
+          .select("id")
+          .eq("contract_id", contractId)
+          .eq("financial_status", "pending");
+
+        if (pendingInstIds && pendingInstIds.length > 0) {
+          const ids = pendingInstIds.map((i: any) => i.id);
+          await supabase.from("rental_installments").delete().in("id", ids);
         }
-        toast.success("Contrato atualizado.");
+
+        // Fetch property owner type and tax brackets for IR calculation
+        const { data: propDataEdit } = await supabase
+          .from("properties")
+          .select("clients(person_type)")
+          .eq("id", form.property_id)
+          .single();
+        const ownerPersonTypeEdit = (propDataEdit as any)?.clients?.person_type ?? "fisica";
+
+        const { data: allTaxBracketsEdit } = await supabase
+          .from("income_tax_brackets")
+          .select("*")
+          .order("valid_from_date", { ascending: false });
+
+        const getBracketsForCompetenceEdit = (competence: string, brackets: any[]): any[] => {
+          if (!brackets || brackets.length === 0) return [];
+          const [month, year] = competence.split("/");
+          const compDate = `${year}-${month}-01`;
+          const sorted = [...brackets].sort((a, b) =>
+            (b.valid_from_date ?? "2000-01-01").localeCompare(a.valid_from_date ?? "2000-01-01")
+          );
+          const latestValidDate = sorted.find((b) => (b.valid_from_date ?? "2000-01-01") <= compDate)?.valid_from_date;
+          if (!latestValidDate) return [];
+          return brackets.filter((b) => (b.valid_from_date ?? "2000-01-01") === latestValidDate);
+        };
+
+        const calcIREdit = (rentValue: number, competence: string) => {
+          const feeVal = rentValue * feeP / 100;
+          const taxBase = rentValue - feeVal;
+          let irrfVal = 0;
+          let appliedRate: number | null = null;
+          let appliedDeduction: number | null = null;
+          if (ownerPersonTypeEdit === "fisica" && allTaxBracketsEdit && allTaxBracketsEdit.length > 0) {
+            const brackets = getBracketsForCompetenceEdit(competence, allTaxBracketsEdit as any[]);
+            const bracket = brackets.find(
+              (b: any) => taxBase >= b.range_start && (b.range_end == null || taxBase <= b.range_end)
+            );
+            if (bracket) {
+              appliedRate = bracket.rate;
+              appliedDeduction = bracket.deduction;
+              irrfVal = Math.max(0, (taxBase * bracket.rate / 100) - bracket.deduction);
+            }
+          }
+          const ownerNet = taxBase - irrfVal;
+          return { feeVal, taxBase, irrfVal, ownerNet, repasseVal: ownerNet, appliedRate, appliedDeduction };
+        };
+
+        const startDateEdit = parseISO(form.start_date);
+        const newInstallmentRows = [];
+        for (let i = 0; i < durationMonths; i++) {
+          const monthDate = addMonths(startDateEdit, i);
+          let dueDate: Date;
+          try {
+            dueDate = setDate(monthDate, dueDay);
+          } catch {
+            const lastDay = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+            dueDate = setDate(monthDate, Math.min(dueDay, lastDay));
+          }
+          const competence = format(monthDate, "MM/yyyy");
+          const ir = calcIREdit(rentVal, competence);
+          newInstallmentRows.push({
+            company_id: company!.id,
+            contract_id: contractId,
+            competence,
+            due_date: format(dueDate, "yyyy-MM-dd"),
+            value: rentVal,
+            management_fee_percent: feeP,
+            management_fee_value: ir.feeVal,
+            repasse_value: ir.repasseVal,
+            tax_base_value: ir.taxBase,
+            irrf_value: ir.irrfVal,
+            owner_net_value: ir.ownerNet,
+            ir_rate: ir.appliedRate,
+            ir_deduction: ir.appliedDeduction,
+            status: "em_aberto",
+          });
+        }
+
+        if (newInstallmentRows.length > 0) {
+          const { error: instErrEdit } = await supabase.from("rental_installments").insert(newInstallmentRows);
+          if (instErrEdit) throw instErrEdit;
+        }
+
+        toast.success(`Contrato atualizado e ${newInstallmentRows.length} parcela(s) regenerada(s).`);
       } else {
         const { count: taken } = await supabase.from("rental_contracts")
           .select("id", { count: "exact", head: true })
