@@ -120,6 +120,8 @@ const INST_LABELS: Record<string, string> = {
 
 // Financial status badge for installments
 const FinancialStatusBadge = ({ status }: { status: string }) => {
+  if (status === "repasse_paid") return <Badge className="bg-emerald-700/15 text-emerald-700 border-emerald-700/25 text-xs font-normal">Repasse Efetuado</Badge>;
+  if (status === "repasse_generated") return <Badge className="bg-violet-500/15 text-violet-600 border-violet-500/25 text-xs font-normal">Repasse Gerado</Badge>;
   if (status === "paid") return <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/25 text-xs font-normal">Pago</Badge>;
   if (status === "generated") return <Badge className="bg-blue-500/15 text-blue-600 border-blue-500/25 text-xs font-normal">CR Gerado</Badge>;
   if (status === "cancelled") return <Badge variant="destructive" className="bg-destructive/10 text-destructive border-destructive/20 text-xs font-normal">Cancelado</Badge>;
