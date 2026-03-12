@@ -1163,7 +1163,7 @@ export default function GestaoContratos() {
           </div>
         )}
 
-        <div className="card-premium rounded-xl overflow-hidden">
+        <div className="card-premium rounded-xl overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="border-border/40">
