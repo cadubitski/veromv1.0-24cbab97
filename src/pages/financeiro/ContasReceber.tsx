@@ -363,6 +363,29 @@ export default function ContasReceber() {
     if (!cancelBaixaItem) return;
     setSavingBaixa(true);
     try {
+      // Block cancellation if repasse is already paid
+      if (cancelBaixaItem.installment_id) {
+        const { data: inst } = await supabase
+          .from("rental_installments")
+          .select("repasse_accounts_payable_id, financial_status")
+          .eq("id", cancelBaixaItem.installment_id)
+          .maybeSingle();
+
+        if (inst?.repasse_accounts_payable_id) {
+          const { data: repasseAP } = await supabase
+            .from("accounts_payable")
+            .select("status")
+            .eq("id", inst.repasse_accounts_payable_id)
+            .maybeSingle();
+
+          if (repasseAP?.status === "paid") {
+            toast.error("Não é possível cancelar o recebimento pois o repasse ao proprietário já foi pago.");
+            setSavingBaixa(false);
+            return;
+          }
+        }
+      }
+
       const txId = cancelBaixaItem.bank_transaction_id;
 
       const { error: updErr } = await supabase
@@ -377,9 +400,31 @@ export default function ContasReceber() {
       }
 
       if (cancelBaixaItem.installment_id) {
+        // Get installment to check repasse AP
+        const { data: inst } = await supabase
+          .from("rental_installments")
+          .select("repasse_accounts_payable_id")
+          .eq("id", cancelBaixaItem.installment_id)
+          .maybeSingle();
+
+        // If there's a pending repasse payable, delete it
+        if (inst?.repasse_accounts_payable_id) {
+          await supabase
+            .from("accounts_payable")
+            .delete()
+            .eq("id", inst.repasse_accounts_payable_id)
+            .eq("status", "pending");
+        }
+
         await supabase
           .from("rental_installments")
-          .update({ status: "em_aberto", paid_at: null, financial_status: "generated", updated_at: new Date().toISOString() })
+          .update({
+            status: "em_aberto",
+            paid_at: null,
+            financial_status: "generated",
+            repasse_accounts_payable_id: null,
+            updated_at: new Date().toISOString(),
+          })
           .eq("id", cancelBaixaItem.installment_id);
       }
 
