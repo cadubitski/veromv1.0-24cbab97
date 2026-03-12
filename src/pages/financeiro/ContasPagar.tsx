@@ -306,15 +306,42 @@ export default function ContasPagar() {
     setSavingBaixa(true);
     try {
       const txId = cancelBaixaItem.bank_transaction_id;
+
+      // 1. Reverter o título de Contas a Pagar para pendente
       const { error: unlinkErr } = await supabase.from("accounts_payable").update({
         status: "pending", paid_at: null, bank_account_id: null, bank_transaction_id: null,
       }).eq("id", cancelBaixaItem.id);
       if (unlinkErr) throw new Error("Erro ao atualizar título: " + unlinkErr.message);
+
+      // 2. Excluir a movimentação bancária correspondente
       if (txId) {
         const { error: delErr } = await supabase.from("bank_transactions").delete().eq("id", txId);
         if (delErr) throw new Error("Erro ao excluir movimentação bancária: " + delErr.message);
       }
-      toast.success("Pagamento cancelado. Título voltou para pendente.");
+
+      // 3. Se este título é um repasse vinculado a uma parcela, reverter o financial_status
+      //    de "repasse_paid" → "repasse_generated"
+      if (cancelBaixaItem.installment_id) {
+        const { data: inst } = await supabase
+          .from("rental_installments")
+          .select("repasse_accounts_payable_id, financial_status")
+          .eq("id", cancelBaixaItem.installment_id)
+          .maybeSingle();
+
+        // Só atualiza se este título é de fato o repasse desta parcela
+        if (inst?.repasse_accounts_payable_id === cancelBaixaItem.id) {
+          const { error: instErr } = await supabase
+            .from("rental_installments")
+            .update({
+              financial_status: "repasse_generated",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", cancelBaixaItem.installment_id);
+          if (instErr) throw new Error("Erro ao reverter status da parcela: " + instErr.message);
+        }
+      }
+
+      toast.success("Pagamento cancelado. Título voltou para pendente e status da parcela revertido.");
       setCancelBaixaItem(null);
       fetchData();
     } catch (err: any) {
