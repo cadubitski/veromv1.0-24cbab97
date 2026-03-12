@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Loader2, Plus, Search, Eye, CheckCircle2,
   Pencil, Trash2, ArrowDownCircle, RotateCcw, Filter,
-  Receipt, TrendingUp, Clock, Ban, FileDown, ChevronUp, ChevronDown
+  Receipt, TrendingUp, Clock, Ban, FileDown, ChevronUp, ChevronDown,
+  ListChecks, Square, CheckSquare,
 } from "lucide-react";
 import { StatusDot, ActionGear } from "@/components/TableActions";
 import ColumnSelector, { ColumnDef } from "@/components/ColumnSelector";
@@ -11,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogFooter, DialogDescription
@@ -26,6 +28,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +37,10 @@ import { format, parseISO } from "date-fns";
 import { maskCurrency, parseCurrency } from "@/lib/masks";
 import { ptBR } from "date-fns/locale";
 import * as XLSX from "xlsx";
+import {
+  PAYMENT_METHODS, settleReceivable, batchSettleReceivables,
+  type BaixaParams, type ReceivableItem,
+} from "@/lib/settlement";
 
 // ─── Column definitions ───────────────────────────────────────────────────────
 
@@ -67,7 +74,6 @@ interface Receivable {
   bank_account_id: string | null;
   bank_transaction_id: string | null;
   created_at: string;
-  // joined
   tenant_name?: string;
 }
 
@@ -81,23 +87,11 @@ interface InstallmentDetail {
   owner_net_value: number | null;
 }
 
-interface Tenant {
-  id: string;
-  full_name: string;
-}
+interface Tenant { id: string; full_name: string; }
+interface BankAccount { id: string; account_name: string; bank_name: string; current_balance: number; }
 
-interface BankAccount {
-  id: string;
-  account_name: string;
-  bank_name: string;
-  current_balance: number;
-}
-
-const fmt = (v: number) =>
-  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-const fmtDate = (d: string | null) =>
-  d ? format(parseISO(d), "dd/MM/yyyy", { locale: ptBR }) : "—";
+const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const fmtDate = (d: string | null) => d ? format(parseISO(d), "dd/MM/yyyy", { locale: ptBR }) : "—";
 
 const statusBadge = (s: string) => {
   if (s === "paid") return <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/25 hover:bg-emerald-500/20">Recebido</Badge>;
@@ -110,6 +104,15 @@ const statusLabel = (s: string) => {
   if (s === "cancelled") return "Cancelado";
   return "Pendente";
 };
+
+// ─── Empty forms ──────────────────────────────────────────────────────────────
+
+const emptyBaixaForm = () => ({
+  bank_account_id: "",
+  paid_at: format(new Date(), "yyyy-MM-dd"),
+  payment_method: "" as string,
+  observation: "",
+});
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -146,13 +149,27 @@ export default function ContasReceber() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
 
-  // Dialogs
+  // Dialogs — individual
   const [createOpen, setCreateOpen] = useState(false);
   const [viewItem, setViewItem] = useState<Receivable | null>(null);
   const [editItem, setEditItem] = useState<Receivable | null>(null);
   const [baixaItem, setBaixaItem] = useState<Receivable | null>(null);
   const [cancelBaixaItem, setCancelBaixaItem] = useState<Receivable | null>(null);
   const [deleteItem, setDeleteItem] = useState<Receivable | null>(null);
+
+  // Batch baixa
+  const [batchMode, setBatchMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchBaixaOpen, setBatchBaixaOpen] = useState(false);
+  const [batchConfirmOpen, setBatchConfirmOpen] = useState(false);
+
+  // Batch filters
+  const [batchSearch, setBatchSearch] = useState("");
+  const [batchFilterStatus, setBatchFilterStatus] = useState("all");
+  const [batchFilterDateFrom, setBatchFilterDateFrom] = useState("");
+  const [batchFilterDateTo, setBatchFilterDateTo] = useState("");
+  const [batchFilterAmountMin, setBatchFilterAmountMin] = useState("");
+  const [batchFilterAmountMax, setBatchFilterAmountMax] = useState("");
 
   // Installment detail for view
   const [installDetail, setInstallDetail] = useState<InstallmentDetail | null>(null);
@@ -169,8 +186,7 @@ export default function ContasReceber() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
-  const emptyBaixa = { bank_account_id: "", paid_at: format(new Date(), "yyyy-MM-dd") };
-  const [baixaForm, setBaixaForm] = useState(emptyBaixa);
+  const [baixaForm, setBaixaForm] = useState(emptyBaixaForm());
   const [savingBaixa, setSavingBaixa] = useState(false);
 
   // ── Load Data ──────────────────────────────────────────────────────────────
@@ -189,13 +205,11 @@ export default function ContasReceber() {
     ]);
 
     if (receivables) {
-      setItems(
-        receivables.map((r: any) => ({
-          ...r,
-          tenant_name: r.tenants?.full_name ?? null,
-          tenants: undefined,
-        }))
-      );
+      setItems(receivables.map((r: any) => ({
+        ...r,
+        tenant_name: r.tenants?.full_name ?? null,
+        tenants: undefined,
+      })));
     }
     setTenants(tenantsData ?? []);
     setBankAccounts(bankData ?? []);
@@ -229,7 +243,7 @@ export default function ContasReceber() {
       .eq("document_number", docNumber.trim());
     if (excludeId) query = query.neq("id", excludeId);
     const { data } = await query.maybeSingle();
-    return !data; // true = valid (no duplicate)
+    return !data;
   };
 
   // ── Create ──────────────────────────────────────────────────────────────────
@@ -312,66 +326,36 @@ export default function ContasReceber() {
     setEditItem(item);
   };
 
-  // ── Baixa (Mark as Paid) ────────────────────────────────────────────────────
+  // ── Individual Baixa ────────────────────────────────────────────────────────
   const handleBaixa = async () => {
-    if (!baixaItem || !baixaForm.bank_account_id || !baixaForm.paid_at) {
-      toast.error("Selecione a conta bancária e a data de pagamento.");
+    if (!baixaItem) return;
+    if (!baixaForm.bank_account_id || !baixaForm.paid_at || !baixaForm.payment_method) {
+      toast.error("Preencha conta bancária, data e forma de pagamento.");
       return;
     }
     setSavingBaixa(true);
-    try {
-      const { data: txData, error: txErr } = await supabase
-        .from("bank_transactions")
-        .insert({
-          company_id: company!.id,
-          bank_account_id: baixaForm.bank_account_id,
-          transaction_date: baixaForm.paid_at,
-          document_number: `${baixaItem.document_number}-R`,
-          type: "credit",
-          amount: baixaItem.amount,
-          description: `Recebimento de título: ${baixaItem.description}`,
-          origin_type: "contas_receber",
-          origin_id: baixaItem.id,
-        })
-        .select("id")
-        .single();
-
-      if (txErr || !txData) throw new Error(txErr?.message ?? "Erro ao criar movimentação");
-
-      const { error: updErr } = await supabase
-        .from("accounts_receivable")
-        .update({
-          status: "paid",
-          paid_at: baixaForm.paid_at,
-          bank_account_id: baixaForm.bank_account_id,
-          bank_transaction_id: txData.id,
-        })
-        .eq("id", baixaItem.id);
-
-      if (updErr) throw new Error(updErr.message);
-
-      // Auto-update linked rental installment if exists
-      if (baixaItem.installment_id) {
-        await supabase
-          .from("rental_installments")
-          .update({
-            status: "pago",
-            paid_at: baixaForm.paid_at,
-            financial_status: "paid",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", baixaItem.installment_id);
-      }
-
-      toast.success("Baixa registrada com sucesso.");
-      setBaixaItem(null);
-      setBaixaForm(emptyBaixa);
-      fetchData();
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setSavingBaixa(false);
-    }
+    const params: BaixaParams = {
+      companyId: company!.id,
+      bankAccountId: baixaForm.bank_account_id,
+      paidAt: baixaForm.paid_at,
+      paymentMethod: baixaForm.payment_method as any,
+      observation: baixaForm.observation || undefined,
+    };
+    const receivableItem: ReceivableItem = {
+      id: baixaItem.id,
+      document_number: baixaItem.document_number,
+      description: baixaItem.description,
+      amount: baixaItem.amount,
+      status: baixaItem.status,
+      installment_id: baixaItem.installment_id,
+    };
+    const result = await settleReceivable(receivableItem, params);
+    setSavingBaixa(false);
+    if (!result.success) { toast.error(result.error); return; }
+    toast.success("Baixa registrada com sucesso.");
+    setBaixaItem(null);
+    setBaixaForm(emptyBaixaForm());
+    fetchData();
   };
 
   // ── Cancelar Baixa ──────────────────────────────────────────────────────────
@@ -381,38 +365,21 @@ export default function ContasReceber() {
     try {
       const txId = cancelBaixaItem.bank_transaction_id;
 
-      // PASSO 1: Limpar o vínculo em accounts_receivable ANTES de deletar a transação
       const { error: updErr } = await supabase
         .from("accounts_receivable")
-        .update({
-          status: "pending",
-          paid_at: null,
-          bank_account_id: null,
-          bank_transaction_id: null,
-        })
+        .update({ status: "pending", paid_at: null, bank_account_id: null, bank_transaction_id: null })
         .eq("id", cancelBaixaItem.id);
-
       if (updErr) throw new Error("Erro ao atualizar título: " + updErr.message);
 
-      // PASSO 2: Deletar a movimentação bancária
       if (txId) {
-        const { error: delErr } = await supabase
-          .from("bank_transactions")
-          .delete()
-          .eq("id", txId);
+        const { error: delErr } = await supabase.from("bank_transactions").delete().eq("id", txId);
         if (delErr) throw new Error("Erro ao excluir movimentação bancária: " + delErr.message);
       }
 
-      // PASSO 3: Reverter a parcela do contrato para "generated" se estava vinculada
       if (cancelBaixaItem.installment_id) {
         await supabase
           .from("rental_installments")
-          .update({
-            status: "em_aberto",
-            paid_at: null,
-            financial_status: "generated",
-            updated_at: new Date().toISOString(),
-          })
+          .update({ status: "em_aberto", paid_at: null, financial_status: "generated", updated_at: new Date().toISOString() })
           .eq("id", cancelBaixaItem.installment_id);
       }
 
@@ -426,7 +393,6 @@ export default function ContasReceber() {
     }
   };
 
-
   // ── Delete ──────────────────────────────────────────────────────────────────
   const handleDelete = async () => {
     if (!deleteItem) return;
@@ -437,7 +403,75 @@ export default function ContasReceber() {
     fetchData();
   };
 
-  // ── Export to Excel (respects visible columns) ──────────────────────────────
+  // ── Batch helpers ───────────────────────────────────────────────────────────
+  const batchFiltered = useMemo(() => {
+    return items.filter((i) => {
+      const q = batchSearch.toLowerCase();
+      const matchSearch =
+        i.description.toLowerCase().includes(q) ||
+        (i.tenant_name ?? "").toLowerCase().includes(q) ||
+        i.document_number.toLowerCase().includes(q);
+      const matchStatus = batchFilterStatus === "all" || i.status === batchFilterStatus;
+      const matchFrom = !batchFilterDateFrom || i.due_date >= batchFilterDateFrom;
+      const matchTo = !batchFilterDateTo || i.due_date <= batchFilterDateTo;
+      const amt = i.amount;
+      const matchMin = !batchFilterAmountMin || amt >= parseFloat(batchFilterAmountMin.replace(",", "."));
+      const matchMax = !batchFilterAmountMax || amt <= parseFloat(batchFilterAmountMax.replace(",", "."));
+      return matchSearch && matchStatus && matchFrom && matchTo && matchMin && matchMax;
+    });
+  }, [items, batchSearch, batchFilterStatus, batchFilterDateFrom, batchFilterDateTo, batchFilterAmountMin, batchFilterAmountMax]);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const selectAll = () => setSelectedIds(new Set(batchFiltered.map((i) => i.id)));
+  const deselectAll = () => setSelectedIds(new Set());
+
+  const selectedItems = items.filter((i) => selectedIds.has(i.id));
+  const selectedTotal = selectedItems.reduce((s, i) => s + i.amount, 0);
+  const selectedPendingCount = selectedItems.filter((i) => i.status !== "paid").length;
+
+  const handleBatchConfirm = async () => {
+    if (!baixaForm.bank_account_id || !baixaForm.paid_at || !baixaForm.payment_method) {
+      toast.error("Preencha conta bancária, data e forma de pagamento.");
+      return;
+    }
+    setBatchConfirmOpen(false);
+    setSavingBaixa(true);
+
+    const params: BaixaParams = {
+      companyId: company!.id,
+      bankAccountId: baixaForm.bank_account_id,
+      paidAt: baixaForm.paid_at,
+      paymentMethod: baixaForm.payment_method as any,
+      observation: baixaForm.observation || undefined,
+    };
+    const toSettle: ReceivableItem[] = selectedItems.map((i) => ({
+      id: i.id,
+      document_number: i.document_number,
+      description: i.description,
+      amount: i.amount,
+      status: i.status,
+      installment_id: i.installment_id,
+    }));
+
+    const result = await batchSettleReceivables(toSettle, params);
+    setSavingBaixa(false);
+
+    if (result.succeeded > 0) toast.success(`${result.succeeded} título(s) baixado(s) com sucesso.`);
+    if (result.failed > 0) toast.warning(`${result.failed} título(s) ignorados (já pagos ou com erro).`);
+
+    setBatchBaixaOpen(false);
+    setSelectedIds(new Set());
+    setBaixaForm(emptyBaixaForm());
+    fetchData();
+  };
+
+  // ── Export to Excel ─────────────────────────────────────────────────────────
   const handleExport = () => {
     const colMap: Record<string, (i: Receivable) => any> = {
       document_number: (i) => i.document_number,
@@ -450,21 +484,12 @@ export default function ContasReceber() {
       paid_at:         (i) => fmtDate(i.paid_at),
     };
     const labelMap: Record<string, string> = {
-      document_number: "Nº Documento",
-      tenant_name:     "Locatário",
-      description:     "Descrição",
-      issue_date:      "Emissão",
-      due_date:        "Vencimento",
-      amount:          "Valor (R$)",
-      source_type:     "Origem",
-      paid_at:         "Recebido em",
+      document_number: "Nº Documento", tenant_name: "Locatário", description: "Descrição",
+      issue_date: "Emissão", due_date: "Vencimento", amount: "Valor (R$)", source_type: "Origem", paid_at: "Recebido em",
     };
-    // Always include Status
     const rows = filtered.map((i) => {
       const row: Record<string, any> = {};
-      ALL_COLUMNS.filter((c) => visibleCols.has(c.key)).forEach((c) => {
-        row[labelMap[c.key]] = colMap[c.key](i);
-      });
+      ALL_COLUMNS.filter((c) => visibleCols.has(c.key)).forEach((c) => { row[labelMap[c.key]] = colMap[c.key](i); });
       row["Status"] = statusLabel(i.status);
       return row;
     });
@@ -491,38 +516,79 @@ export default function ContasReceber() {
       return matchSearch && matchStatus;
     });
     return [...base].sort((a, b) => {
-      const va = sortKey === "amount"
-        ? a.amount
-        : ((a[sortKey as keyof typeof a] ?? "") as string);
-      const vb = sortKey === "amount"
-        ? b.amount
-        : ((b[sortKey as keyof typeof b] ?? "") as string);
-      if (typeof va === "number" && typeof vb === "number") {
-        return sortDir === "asc" ? va - vb : vb - va;
-      }
-      return sortDir === "asc"
-        ? String(va).localeCompare(String(vb))
-        : String(vb).localeCompare(String(va));
+      const va = sortKey === "amount" ? a.amount : ((a[sortKey as keyof typeof a] ?? "") as string);
+      const vb = sortKey === "amount" ? b.amount : ((b[sortKey as keyof typeof b] ?? "") as string);
+      if (typeof va === "number" && typeof vb === "number") return sortDir === "asc" ? va - vb : vb - va;
+      return sortDir === "asc" ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
     });
   }, [items, search, filterStatus, sortKey, sortDir]);
 
-  // ── Helpers ─────────────────────────────────────────────────────────────────
   const canEdit = (i: Receivable) => i.source_type === "manual" && i.status === "pending";
   const canBaixa = (i: Receivable) => i.status === "pending";
   const canCancelBaixa = (i: Receivable) => i.status === "paid";
 
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  const BaixaFormFields = () => (
+    <div className="space-y-4 py-2">
+      <div className="space-y-2">
+        <Label>Conta bancária <span className="text-destructive">*</span></Label>
+        <Select value={baixaForm.bank_account_id} onValueChange={(v) => setBaixaForm((f) => ({ ...f, bank_account_id: v }))}>
+          <SelectTrigger><SelectValue placeholder="Selecione a conta" /></SelectTrigger>
+          <SelectContent>
+            {bankAccounts.map((b) => (
+              <SelectItem key={b.id} value={b.id}>
+                {b.account_name} — {b.bank_name} ({fmt(b.current_balance)})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label>Data do recebimento <span className="text-destructive">*</span></Label>
+          <Input type="date" value={baixaForm.paid_at} onChange={(e) => setBaixaForm((f) => ({ ...f, paid_at: e.target.value }))} />
+        </div>
+        <div className="space-y-2">
+          <Label>Forma de pagamento <span className="text-destructive">*</span></Label>
+          <Select value={baixaForm.payment_method} onValueChange={(v) => setBaixaForm((f) => ({ ...f, payment_method: v }))}>
+            <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+            <SelectContent>
+              {PAYMENT_METHODS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Observação</Label>
+        <Textarea
+          value={baixaForm.observation}
+          onChange={(e) => setBaixaForm((f) => ({ ...f, observation: e.target.value }))}
+          placeholder="Observação opcional..."
+          rows={2}
+        />
+      </div>
+    </div>
+  );
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Contas a Receber</h1>
             <p className="text-muted-foreground mt-1">Gerencie os títulos a receber e registre pagamentos</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant={batchMode ? "default" : "outline"}
+              onClick={() => { setBatchMode((v) => !v); setSelectedIds(new Set()); }}
+              className="gap-2"
+            >
+              <ListChecks className="h-4 w-4" />
+              {batchMode ? "Sair da Baixa em Lote" : "Baixa em Lote"}
+            </Button>
             <ColumnSelector columns={ALL_COLUMNS} visible={visibleCols} onChange={setVisibleCols} />
             <Button variant="outline" onClick={handleExport} className="gap-2">
               <FileDown className="h-4 w-4" /> Exportar Excel
@@ -535,175 +601,242 @@ export default function ContasReceber() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="border-0 shadow-card">
-            <CardContent className="pt-5 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                  <Receipt className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Total</p>
-                  <p className="text-base font-bold text-foreground">{fmt(total)}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-card">
-            <CardContent className="pt-5 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10">
-                  <Clock className="h-4 w-4 text-amber-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Pendente</p>
-                  <p className="text-base font-bold text-amber-600">{fmt(totalPending)}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-card">
-            <CardContent className="pt-5 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10">
-                  <TrendingUp className="h-4 w-4 text-emerald-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Recebido</p>
-                  <p className="text-base font-bold text-emerald-600">{fmt(totalPaid)}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-card">
-            <CardContent className="pt-5 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-destructive/10">
-                  <Ban className="h-4 w-4 text-destructive" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Cancelado</p>
-                  <p className="text-base font-bold text-destructive">{fmt(totalCancelled)}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <Card className="border-0 shadow-card"><CardContent className="pt-5 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10"><Receipt className="h-4 w-4 text-primary" /></div>
+              <div><p className="text-xs text-muted-foreground">Total</p><p className="text-base font-bold">{fmt(total)}</p></div>
+            </div>
+          </CardContent></Card>
+          <Card className="border-0 shadow-card"><CardContent className="pt-5 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10"><Clock className="h-4 w-4 text-amber-600" /></div>
+              <div><p className="text-xs text-muted-foreground">Pendente</p><p className="text-base font-bold text-amber-600">{fmt(totalPending)}</p></div>
+            </div>
+          </CardContent></Card>
+          <Card className="border-0 shadow-card"><CardContent className="pt-5 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10"><TrendingUp className="h-4 w-4 text-emerald-600" /></div>
+              <div><p className="text-xs text-muted-foreground">Recebido</p><p className="text-base font-bold text-emerald-600">{fmt(totalPaid)}</p></div>
+            </div>
+          </CardContent></Card>
+          <Card className="border-0 shadow-card"><CardContent className="pt-5 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-destructive/10"><Ban className="h-4 w-4 text-destructive" /></div>
+              <div><p className="text-xs text-muted-foreground">Cancelado</p><p className="text-base font-bold text-destructive">{fmt(totalCancelled)}</p></div>
+            </div>
+          </CardContent></Card>
         </div>
 
-        {/* Filters + Table */}
-        <Card className="border-0 shadow-card">
-          <CardHeader className="pb-4">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por nº documento, descrição ou locatário..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-full sm:w-44">
-                  <Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os status</SelectItem>
-                  <SelectItem value="pending">Pendente</SelectItem>
-                  <SelectItem value="paid">Recebido</SelectItem>
-                  <SelectItem value="cancelled">Cancelado</SelectItem>
-                </SelectContent>
-              </Select>
+        {/* ── BATCH MODE ── */}
+        {batchMode ? (
+          <div className="space-y-4">
+            {/* Batch filters */}
+            <Card className="border-0 shadow-card">
+              <CardHeader className="pb-3">
+                <p className="font-semibold text-sm">Filtros — Baixa em Lote</p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Busca (doc / descrição / locatário)</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input className="pl-8 h-8 text-sm" value={batchSearch} onChange={(e) => setBatchSearch(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Status</Label>
+                    <Select value={batchFilterStatus} onValueChange={setBatchFilterStatus}>
+                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="pending">Pendente</SelectItem>
+                        <SelectItem value="paid">Recebido</SelectItem>
+                        <SelectItem value="cancelled">Cancelado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Vencimento de</Label>
+                    <Input type="date" className="h-8 text-sm" value={batchFilterDateFrom} onChange={(e) => setBatchFilterDateFrom(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Vencimento até</Label>
+                    <Input type="date" className="h-8 text-sm" value={batchFilterDateTo} onChange={(e) => setBatchFilterDateTo(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Valor mínimo</Label>
+                    <Input className="h-8 text-sm" placeholder="0,00" value={batchFilterAmountMin} onChange={(e) => setBatchFilterAmountMin(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Valor máximo</Label>
+                    <Input className="h-8 text-sm" placeholder="0,00" value={batchFilterAmountMax} onChange={(e) => setBatchFilterAmountMax(e.target.value)} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Batch toolbar */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <Button variant="outline" size="sm" className="gap-2 h-8" onClick={selectAll}>
+                <CheckSquare className="h-3.5 w-3.5" /> Marcar todos
+              </Button>
+              <Button variant="outline" size="sm" className="gap-2 h-8" onClick={deselectAll}>
+                <Square className="h-3.5 w-3.5" /> Desmarcar todos
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {selectedIds.size} selecionado(s) — {fmt(selectedTotal)}
+              </span>
+              {selectedIds.size > 0 && (
+                <Button
+                  size="sm"
+                  className="gap-2 h-8 bg-emerald-600 hover:bg-emerald-700 text-white ml-auto"
+                  onClick={() => { setBaixaForm(emptyBaixaForm()); setBatchBaixaOpen(true); }}
+                  disabled={savingBaixa}
+                >
+                  <ArrowDownCircle className="h-3.5 w-3.5" />
+                  Baixar selecionados ({selectedIds.size})
+                </Button>
+              )}
             </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            {loading ? (
-              <div className="flex justify-center py-16">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="py-16 text-center text-muted-foreground">
-                <Receipt className="mx-auto mb-3 h-10 w-10 opacity-30" />
-                <p>Nenhum título encontrado</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      {visibleCols.has("document_number") && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("document_number")}>Nº Documento <SortIcon col="document_number" /></TableHead>}
-                      {visibleCols.has("tenant_name")     && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("tenant_name")}>Locatário <SortIcon col="tenant_name" /></TableHead>}
-                      {visibleCols.has("description")     && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("description")}>Descrição <SortIcon col="description" /></TableHead>}
-                      {visibleCols.has("issue_date")      && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("issue_date")}>Emissão <SortIcon col="issue_date" /></TableHead>}
-                      {visibleCols.has("due_date")        && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("due_date")}>Vencimento <SortIcon col="due_date" /></TableHead>}
-                      {visibleCols.has("amount")          && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("amount")}>Valor <SortIcon col="amount" /></TableHead>}
-                      {visibleCols.has("source_type")     && <TableHead>Origem</TableHead>}
-                      <TableHead className="w-px whitespace-nowrap">Status</TableHead>
-                      {visibleCols.has("paid_at")         && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("paid_at")}>Recebido em <SortIcon col="paid_at" /></TableHead>}
-                      <TableHead className="w-px whitespace-nowrap">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filtered.map((item) => (
-                      <TableRow key={item.id}>
-                        {visibleCols.has("document_number") && <TableCell className="font-mono text-sm font-medium">{item.document_number}</TableCell>}
-                        {visibleCols.has("tenant_name")     && <TableCell className="font-medium">{item.tenant_name ?? "—"}</TableCell>}
-                        {visibleCols.has("description")     && <TableCell className="max-w-[180px] truncate text-muted-foreground">{item.description}</TableCell>}
-                        {visibleCols.has("issue_date")      && <TableCell className="whitespace-nowrap">{fmtDate(item.issue_date)}</TableCell>}
-                        {visibleCols.has("due_date")        && <TableCell className="whitespace-nowrap">{fmtDate(item.due_date)}</TableCell>}
-                        {visibleCols.has("amount")          && <TableCell className="whitespace-nowrap font-mono">{fmt(item.amount)}</TableCell>}
-                        {visibleCols.has("source_type")     && (
-                          <TableCell>
-                            <Badge variant="outline" className="text-xs">
-                              {item.source_type === "manual" ? "Manual" : "Contrato"}
-                            </Badge>
-                          </TableCell>
-                        )}
-                        <TableCell className="w-px whitespace-nowrap">
-                          <StatusDot status={item.status} />
-                        </TableCell>
-                        {visibleCols.has("paid_at")         && <TableCell className="whitespace-nowrap">{fmtDate(item.paid_at)}</TableCell>}
-                        <TableCell className="w-px whitespace-nowrap">
-                          <ActionGear
-                            legendKeys={["pending", "paid", "cancelled"]}
-                            actions={[
-                              {
-                                label: "Visualizar",
-                                icon: <Eye className="h-4 w-4" />,
-                                onClick: () => openView(item),
-                              },
-                              ...(canEdit(item) ? [{
-                                label: "Editar",
-                                icon: <Pencil className="h-4 w-4" />,
-                                onClick: () => openEdit(item),
-                              }] : []),
-                              ...(canBaixa(item) ? [{
-                                label: "Registrar recebimento",
-                                icon: <ArrowDownCircle className="h-4 w-4" />,
-                                onClick: () => { setBaixaItem(item); setBaixaForm(emptyBaixa); },
-                              }] : []),
-                              ...(canCancelBaixa(item) ? [{
-                                label: "Cancelar baixa",
-                                icon: <RotateCcw className="h-4 w-4" />,
-                                onClick: () => setCancelBaixaItem(item),
-                              }] : []),
-                              ...(item.status !== "paid" ? [{
-                                label: "Excluir",
-                                icon: <Trash2 className="h-4 w-4" />,
-                                onClick: () => setDeleteItem(item),
-                                variant: "destructive" as const,
-                              }] : []),
-                            ]}
-                          />
-                        </TableCell>
+
+            {/* Batch table */}
+            <Card className="border-0 shadow-card">
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10"></TableHead>
+                        <TableHead>Nº Documento</TableHead>
+                        <TableHead>Locatário</TableHead>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead>Vencimento</TableHead>
+                        <TableHead>Valor</TableHead>
+                        <TableHead>Status</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {batchFiltered.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center py-10 text-muted-foreground text-sm">
+                            Nenhum título encontrado com os filtros aplicados.
+                          </TableCell>
+                        </TableRow>
+                      ) : batchFiltered.map((item) => (
+                        <TableRow key={item.id} className={selectedIds.has(item.id) ? "bg-primary/5" : ""}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedIds.has(item.id)}
+                              onCheckedChange={() => toggleSelect(item.id)}
+                            />
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">{item.document_number}</TableCell>
+                          <TableCell className="text-sm">{item.tenant_name ?? "—"}</TableCell>
+                          <TableCell className="text-sm max-w-[180px] truncate">{item.description}</TableCell>
+                          <TableCell className="text-sm whitespace-nowrap">{fmtDate(item.due_date)}</TableCell>
+                          <TableCell className="text-sm font-mono">{fmt(item.amount)}</TableCell>
+                          <TableCell>{statusBadge(item.status)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          /* ── NORMAL MODE ── */
+          <Card className="border-0 shadow-card">
+            <CardHeader className="pb-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por nº documento, descrição ou locatário..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="w-full sm:w-44">
+                    <Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os status</SelectItem>
+                    <SelectItem value="pending">Pendente</SelectItem>
+                    <SelectItem value="paid">Recebido</SelectItem>
+                    <SelectItem value="cancelled">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="p-0">
+              {loading ? (
+                <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+              ) : filtered.length === 0 ? (
+                <div className="py-16 text-center text-muted-foreground">
+                  <Receipt className="mx-auto mb-3 h-10 w-10 opacity-30" />
+                  <p>Nenhum título encontrado</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {visibleCols.has("document_number") && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("document_number")}>Nº Documento <SortIcon col="document_number" /></TableHead>}
+                        {visibleCols.has("tenant_name")     && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("tenant_name")}>Locatário <SortIcon col="tenant_name" /></TableHead>}
+                        {visibleCols.has("description")     && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("description")}>Descrição <SortIcon col="description" /></TableHead>}
+                        {visibleCols.has("issue_date")      && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("issue_date")}>Emissão <SortIcon col="issue_date" /></TableHead>}
+                        {visibleCols.has("due_date")        && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("due_date")}>Vencimento <SortIcon col="due_date" /></TableHead>}
+                        {visibleCols.has("amount")          && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("amount")}>Valor <SortIcon col="amount" /></TableHead>}
+                        {visibleCols.has("source_type")     && <TableHead>Origem</TableHead>}
+                        <TableHead className="w-px whitespace-nowrap">Status</TableHead>
+                        {visibleCols.has("paid_at")         && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("paid_at")}>Recebido em <SortIcon col="paid_at" /></TableHead>}
+                        <TableHead className="w-px whitespace-nowrap">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.map((item) => (
+                        <TableRow key={item.id}>
+                          {visibleCols.has("document_number") && <TableCell className="font-mono text-sm font-medium">{item.document_number}</TableCell>}
+                          {visibleCols.has("tenant_name")     && <TableCell className="font-medium">{item.tenant_name ?? "—"}</TableCell>}
+                          {visibleCols.has("description")     && <TableCell className="max-w-[180px] truncate text-muted-foreground">{item.description}</TableCell>}
+                          {visibleCols.has("issue_date")      && <TableCell className="whitespace-nowrap">{fmtDate(item.issue_date)}</TableCell>}
+                          {visibleCols.has("due_date")        && <TableCell className="whitespace-nowrap">{fmtDate(item.due_date)}</TableCell>}
+                          {visibleCols.has("amount")          && <TableCell className="whitespace-nowrap font-mono">{fmt(item.amount)}</TableCell>}
+                          {visibleCols.has("source_type")     && (
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {item.source_type === "manual" ? "Manual" : "Contrato"}
+                              </Badge>
+                            </TableCell>
+                          )}
+                          <TableCell className="w-px whitespace-nowrap"><StatusDot status={item.status} /></TableCell>
+                          {visibleCols.has("paid_at") && <TableCell className="whitespace-nowrap">{fmtDate(item.paid_at)}</TableCell>}
+                          <TableCell className="w-px whitespace-nowrap">
+                            <ActionGear
+                              legendKeys={["pending", "paid", "cancelled"]}
+                              actions={[
+                                { label: "Visualizar", icon: <Eye className="h-4 w-4" />, onClick: () => openView(item) },
+                                ...(canEdit(item) ? [{ label: "Editar", icon: <Pencil className="h-4 w-4" />, onClick: () => openEdit(item) }] : []),
+                                ...(canBaixa(item) ? [{ label: "Registrar recebimento", icon: <ArrowDownCircle className="h-4 w-4" />, onClick: () => { setBaixaItem(item); setBaixaForm(emptyBaixaForm()); } }] : []),
+                                ...(canCancelBaixa(item) ? [{ label: "Cancelar baixa", icon: <RotateCcw className="h-4 w-4" />, onClick: () => setCancelBaixaItem(item) }] : []),
+                                ...(item.status !== "paid" ? [{ label: "Excluir", icon: <Trash2 className="h-4 w-4" />, onClick: () => setDeleteItem(item), variant: "destructive" as const }] : []),
+                              ]}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* ── Create Dialog ──────────────────────────────────────────────────────── */}
@@ -716,11 +849,7 @@ export default function ContasReceber() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Número do Documento *</Label>
-              <Input
-                value={form.document_number}
-                onChange={(e) => setForm((f) => ({ ...f, document_number: e.target.value }))}
-                placeholder="Ex: BOL-2024-001, PIX-123..."
-              />
+              <Input value={form.document_number} onChange={(e) => setForm((f) => ({ ...f, document_number: e.target.value }))} placeholder="Ex: BOL-2024-001" />
             </div>
             <div className="space-y-2">
               <Label>Locatário *</Label>
@@ -747,19 +876,13 @@ export default function ContasReceber() {
             </div>
             <div className="space-y-2">
               <Label>Valor (R$) *</Label>
-              <Input
-                value={form.amount}
-                onChange={(e) => setForm((f) => ({ ...f, amount: maskCurrency(e.target.value) }))}
-                placeholder="0,00"
-                inputMode="numeric"
-              />
+              <Input value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: maskCurrency(e.target.value) }))} placeholder="0,00" inputMode="numeric" />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
             <Button onClick={handleCreate} disabled={saving}>
-              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Salvar
+              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Salvar
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -775,11 +898,7 @@ export default function ContasReceber() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Número do Documento *</Label>
-              <Input
-                value={form.document_number}
-                onChange={(e) => setForm((f) => ({ ...f, document_number: e.target.value }))}
-                placeholder="Ex: BOL-2024-001"
-              />
+              <Input value={form.document_number} onChange={(e) => setForm((f) => ({ ...f, document_number: e.target.value }))} />
             </div>
             <div className="space-y-2">
               <Label>Locatário</Label>
@@ -806,19 +925,13 @@ export default function ContasReceber() {
             </div>
             <div className="space-y-2">
               <Label>Valor (R$)</Label>
-              <Input
-                value={form.amount}
-                onChange={(e) => setForm((f) => ({ ...f, amount: maskCurrency(e.target.value) }))}
-                placeholder="0,00"
-                inputMode="numeric"
-              />
+              <Input value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: maskCurrency(e.target.value) }))} placeholder="0,00" inputMode="numeric" />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditItem(null)}>Cancelar</Button>
             <Button onClick={handleEdit} disabled={saving}>
-              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Salvar
+              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Salvar
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -827,145 +940,130 @@ export default function ContasReceber() {
       {/* ── View Dialog ────────────────────────────────────────────────────────── */}
       <Dialog open={!!viewItem} onOpenChange={(o) => !o && setViewItem(null)}>
         <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Detalhes do título</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Detalhes do título</DialogTitle></DialogHeader>
           {viewItem && (
             <div className="space-y-4 py-2">
               <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                <div className="col-span-2">
-                  <p className="text-xs text-muted-foreground">Número do Documento</p>
-                  <p className="font-mono font-semibold">{viewItem.document_number}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Locatário</p>
-                  <p className="font-medium">{viewItem.tenant_name ?? "—"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Status</p>
-                  <div className="mt-0.5">{statusBadge(viewItem.status)}</div>
-                </div>
-                <div className="col-span-2">
-                  <p className="text-xs text-muted-foreground">Descrição</p>
-                  <p className="font-medium">{viewItem.description}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Emissão</p>
-                  <p className="font-medium">{fmtDate(viewItem.issue_date)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Vencimento</p>
-                  <p className="font-medium">{fmtDate(viewItem.due_date)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Valor bruto</p>
-                  <p className="font-bold text-foreground">{fmt(viewItem.amount)}</p>
-                </div>
-                {viewItem.paid_at && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">Recebido em</p>
-                    <p className="font-medium text-emerald-600">{fmtDate(viewItem.paid_at)}</p>
-                  </div>
-                )}
+                <div className="col-span-2"><p className="text-xs text-muted-foreground">Número do Documento</p><p className="font-mono font-semibold">{viewItem.document_number}</p></div>
+                <div><p className="text-xs text-muted-foreground">Locatário</p><p className="font-medium">{viewItem.tenant_name ?? "—"}</p></div>
+                <div><p className="text-xs text-muted-foreground">Status</p><div className="mt-0.5">{statusBadge(viewItem.status)}</div></div>
+                <div className="col-span-2"><p className="text-xs text-muted-foreground">Descrição</p><p className="font-medium">{viewItem.description}</p></div>
+                <div><p className="text-xs text-muted-foreground">Emissão</p><p className="font-medium">{fmtDate(viewItem.issue_date)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Vencimento</p><p className="font-medium">{fmtDate(viewItem.due_date)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Valor bruto</p><p className="font-bold">{fmt(viewItem.amount)}</p></div>
+                {viewItem.paid_at && <div><p className="text-xs text-muted-foreground">Recebido em</p><p className="font-medium text-emerald-600">{fmtDate(viewItem.paid_at)}</p></div>}
               </div>
-
-              {/* Composição financeira da parcela */}
               {viewItem.installment_id && installDetail && (
                 <>
                   <Separator />
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-                      Composição financeira da parcela
-                    </p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Composição financeira da parcela</p>
                     <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm rounded-lg bg-muted/40 p-4">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Taxa Admin (%)</p>
-                        <p className="font-medium">{installDetail.management_fee_percent}%</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Taxa Admin (R$)</p>
-                        <p className="font-medium">{installDetail.management_fee_value != null ? fmt(installDetail.management_fee_value) : "—"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Base de cálculo IR</p>
-                        <p className="font-medium">{installDetail.tax_base_value != null ? fmt(installDetail.tax_base_value) : "—"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Alíquota IR</p>
-                        <p className="font-medium">{installDetail.ir_rate != null ? `${installDetail.ir_rate}%` : "Isento"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Dedução IR</p>
-                        <p className="font-medium">{installDetail.ir_deduction != null ? fmt(installDetail.ir_deduction) : "—"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">IRRF Retido</p>
-                        <p className="font-medium text-destructive">{installDetail.irrf_value != null ? fmt(installDetail.irrf_value) : "—"}</p>
-                      </div>
-                      <div className="col-span-2 border-t border-border pt-2 mt-1">
-                        <p className="text-xs text-muted-foreground">Valor líquido ao proprietário</p>
-                        <p className="font-bold text-primary">{installDetail.owner_net_value != null ? fmt(installDetail.owner_net_value) : "—"}</p>
-                      </div>
+                      <div><p className="text-xs text-muted-foreground">Taxa Admin (%)</p><p className="font-medium">{installDetail.management_fee_percent}%</p></div>
+                      <div><p className="text-xs text-muted-foreground">Taxa Admin (R$)</p><p className="font-medium">{installDetail.management_fee_value != null ? fmt(installDetail.management_fee_value) : "—"}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Base IR</p><p className="font-medium">{installDetail.tax_base_value != null ? fmt(installDetail.tax_base_value) : "—"}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Alíquota IR</p><p className="font-medium">{installDetail.ir_rate != null ? `${installDetail.ir_rate}%` : "Isento"}</p></div>
+                      <div><p className="text-xs text-muted-foreground">Dedução IR</p><p className="font-medium">{installDetail.ir_deduction != null ? fmt(installDetail.ir_deduction) : "—"}</p></div>
+                      <div><p className="text-xs text-muted-foreground">IRRF Retido</p><p className="font-medium text-destructive">{installDetail.irrf_value != null ? fmt(installDetail.irrf_value) : "—"}</p></div>
+                      <div className="col-span-2 border-t border-border pt-2 mt-1"><p className="text-xs text-muted-foreground">Valor líquido ao proprietário</p><p className="font-bold text-primary">{installDetail.owner_net_value != null ? fmt(installDetail.owner_net_value) : "—"}</p></div>
                     </div>
                   </div>
                 </>
               )}
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setViewItem(null)}>Fechar</Button>
-          </DialogFooter>
+          <DialogFooter><Button variant="outline" onClick={() => setViewItem(null)}>Fechar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ── Baixa Dialog ──────────────────────────────────────────────────────── */}
+      {/* ── Individual Baixa Dialog ─────────────────────────────────────────────── */}
       <Dialog open={!!baixaItem} onOpenChange={(o) => !o && setBaixaItem(null)}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ArrowDownCircle className="h-5 w-5 text-emerald-600" />
-              Registrar recebimento
+              <ArrowDownCircle className="h-5 w-5 text-emerald-600" /> Registrar recebimento
             </DialogTitle>
             <DialogDescription>
-              {baixaItem && <>Título: <strong>{baixaItem.description}</strong> — <strong>{baixaItem && fmt(baixaItem.amount)}</strong></>}
+              {baixaItem && <>Título: <strong>{baixaItem.description}</strong> — <strong>{fmt(baixaItem.amount)}</strong></>}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Conta bancária *</Label>
-              <Select value={baixaForm.bank_account_id} onValueChange={(v) => setBaixaForm((f) => ({ ...f, bank_account_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="Selecione a conta" /></SelectTrigger>
-                <SelectContent>
-                  {bankAccounts.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.account_name} — {b.bank_name} ({fmt(b.current_balance)})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Data do recebimento *</Label>
-              <Input type="date" value={baixaForm.paid_at} onChange={(e) => setBaixaForm((f) => ({ ...f, paid_at: e.target.value }))} />
-            </div>
-          </div>
+          <BaixaFormFields />
           <DialogFooter>
             <Button variant="outline" onClick={() => setBaixaItem(null)}>Cancelar</Button>
             <Button onClick={handleBaixa} disabled={savingBaixa} className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white">
               {savingBaixa ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-              Confirmar
+              Confirmar baixa
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ── Cancel Baixa Confirm ───────────────────────────────────────────────── */}
+      {/* ── Batch Baixa — form ─────────────────────────────────────────────────── */}
+      <Dialog open={batchBaixaOpen} onOpenChange={(o) => !o && setBatchBaixaOpen(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ListChecks className="h-5 w-5 text-emerald-600" /> Baixa em Lote
+            </DialogTitle>
+            <DialogDescription>
+              {selectedIds.size} título(s) selecionado(s) — Total: <strong>{fmt(selectedTotal)}</strong>
+            </DialogDescription>
+          </DialogHeader>
+          <BaixaFormFields />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBatchBaixaOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={() => {
+                if (!baixaForm.bank_account_id || !baixaForm.paid_at || !baixaForm.payment_method) {
+                  toast.error("Preencha conta bancária, data e forma de pagamento.");
+                  return;
+                }
+                setBatchBaixaOpen(false);
+                setBatchConfirmOpen(true);
+              }}
+              className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              Continuar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Batch Baixa — confirmation ─────────────────────────────────────────── */}
+      <AlertDialog open={batchConfirmOpen} onOpenChange={setBatchConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Baixa em Lote?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>Você está prestes a realizar a baixa financeira dos títulos selecionados.</p>
+                <p>Essa operação irá registrar movimentações bancárias e atualizar os títulos como pagos.</p>
+                <div className="rounded-lg bg-muted/50 p-3 text-sm space-y-1">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Títulos selecionados:</span><span className="font-semibold">{selectedPendingCount} pendentes</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Valor total:</span><span className="font-semibold">{fmt(selectedItems.filter(i => i.status !== "paid").reduce((s, i) => s + i.amount, 0))}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Data da baixa:</span><span className="font-semibold">{fmtDate(baixaForm.paid_at)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Conta:</span><span className="font-semibold">{bankAccounts.find(b => b.id === baixaForm.bank_account_id)?.account_name ?? "—"}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Forma pagamento:</span><span className="font-semibold">{baixaForm.payment_method}</span></div>
+                </div>
+                <p className="text-muted-foreground text-sm">Deseja continuar?</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setBatchConfirmOpen(false); setBatchBaixaOpen(true); }}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBatchConfirm} disabled={savingBaixa} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              {savingBaixa ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Confirmar baixa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Cancel Baixa ───────────────────────────────────────────────────────── */}
       <AlertDialog open={!!cancelBaixaItem} onOpenChange={(o) => !o && setCancelBaixaItem(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <RotateCcw className="h-5 w-5 text-amber-600" /> Cancelar recebimento?
-            </AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center gap-2"><RotateCcw className="h-5 w-5 text-amber-600" /> Cancelar recebimento?</AlertDialogTitle>
             <AlertDialogDescription>
               A movimentação bancária vinculada será removida e o saldo da conta será revertido. O título voltará para <strong>Pendente</strong>.
             </AlertDialogDescription>
@@ -973,8 +1071,7 @@ export default function ContasReceber() {
           <AlertDialogFooter>
             <AlertDialogCancel>Voltar</AlertDialogCancel>
             <AlertDialogAction onClick={handleCancelBaixa} className="bg-amber-600 hover:bg-amber-700 text-white">
-              {savingBaixa ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Confirmar cancelamento
+              {savingBaixa && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Confirmar cancelamento
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -985,15 +1082,11 @@ export default function ContasReceber() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir título?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O título <strong>{deleteItem?.description}</strong> será excluído permanentemente.
-            </AlertDialogDescription>
+            <AlertDialogDescription>Esta ação não pode ser desfeita. O título <strong>{deleteItem?.description}</strong> será excluído permanentemente.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
-              Excluir
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Excluir</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
