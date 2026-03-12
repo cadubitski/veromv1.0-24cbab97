@@ -1256,6 +1256,7 @@ export default function GestaoContratos() {
                 <div><p className="text-muted-foreground text-xs">Taxa admin (%)</p><p>{viewContract.management_fee_percent ?? 0}%</p></div>
                 <div><p className="text-muted-foreground text-xs">Valor admin</p><p className="font-mono">R$ {formatMoney(viewContract.management_fee_value ?? 0)}</p></div>
                 <div><p className="text-muted-foreground text-xs">Valor repasse</p><p className="font-mono">R$ {formatMoney(viewContract.repasse_value ?? 0)}</p></div>
+                <div><p className="text-muted-foreground text-xs">Prazo para repasse (dias)</p><p>{viewContract.repasse_days_after_receipt ?? 5} dias</p></div>
                 <div><p className="text-muted-foreground text-xs">Status</p><Badge variant={(STATUS_COLORS[viewContract.status] as any) ?? "outline"} className="text-xs">{STATUS_LABELS[viewContract.status] ?? viewContract.status}</Badge></div>
               </div>
               {viewContract.status === "ativo" && (
