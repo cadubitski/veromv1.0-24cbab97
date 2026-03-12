@@ -47,6 +47,7 @@ interface BankTransaction {
   amount: number;
   origin_type: string;
   origin_id: string | null;
+  payment_method: string | null;
   created_at: string;
   updated_at: string;
   bank_accounts?: { account_name: string; bank_name: string; bank_code: string };
@@ -673,6 +674,12 @@ export default function MovimentacaoBancaria() {
                     {ORIGIN_TYPES.find(o => o.value === viewItem.origin_type)?.label ?? viewItem.origin_type}
                   </p>
                 </div>
+                {viewItem.payment_method && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Forma de Pagamento</p>
+                    <p className="font-medium">{viewItem.payment_method}</p>
+                  </div>
+                )}
                 {viewItem.origin_id && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-0.5">ID de Origem</p>
