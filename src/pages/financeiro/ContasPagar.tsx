@@ -122,6 +122,24 @@ export default function ContasPagar() {
     new Set(ALL_COLUMNS.filter((c) => c.defaultVisible !== false).map((c) => c.key))
   );
 
+  // Sort
+  type SortKey = "document_number" | "vendor_name" | "description" | "issue_date" | "due_date" | "amount" | "paid_at";
+  type SortDir = "asc" | "desc";
+  const [sortKey, setSortKey] = useState<SortKey>("due_date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ChevronUp className="h-3 w-3 opacity-20 inline ml-1" />;
+    return sortDir === "asc"
+      ? <ChevronUp className="h-3 w-3 opacity-80 inline ml-1" />
+      : <ChevronDown className="h-3 w-3 opacity-80 inline ml-1" />;
+  };
+
   // Vendors & bank accounts
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
