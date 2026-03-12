@@ -638,6 +638,7 @@ export default function GestaoContratos() {
 
         const feeValContract = rentVal * feeP / 100;
         const repasseValContract = rentVal - feeValContract;
+        const repDaysCreate = parseInt(form.repasse_days_after_receipt) || 5;
         const { data, error: err } = await supabase.from("rental_contracts").insert({
           company_id: company.id,
           code: form.code.trim() || null,
@@ -650,6 +651,7 @@ export default function GestaoContratos() {
           management_fee_percent: feeP,
           management_fee_value: feeValContract,
           repasse_value: repasseValContract,
+          repasse_days_after_receipt: repDaysCreate,
           status: "ativo",
         }).select("id").single();
         if (err) throw err;
