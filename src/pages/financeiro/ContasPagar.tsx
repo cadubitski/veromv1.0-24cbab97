@@ -289,6 +289,7 @@ export default function ContasPagar() {
       description: baixaItem.description,
       amount: baixaItem.amount,
       status: baixaItem.status,
+      installment_id: baixaItem.installment_id,
     };
     const result = await settlePayable(payableItem, params);
     setSavingBaixa(false);
