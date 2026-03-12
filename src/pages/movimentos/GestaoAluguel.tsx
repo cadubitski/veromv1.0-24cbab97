@@ -51,6 +51,7 @@ interface Contract {
   management_fee_percent: number;
   management_fee_value: number;
   repasse_value: number;
+  repasse_days_after_receipt: number;
   created_at: string;
   tenants?: Tenant;
   properties?: Property & { clients?: { full_name: string } };
