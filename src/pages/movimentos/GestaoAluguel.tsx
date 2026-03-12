@@ -283,6 +283,7 @@ export default function GestaoContratos() {
     due_day: "10",
     duration_months: "12",
     management_fee_percent: "0",
+    repasse_days_after_receipt: "5",
   });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
