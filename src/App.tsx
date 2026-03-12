@@ -26,6 +26,7 @@ import RelContasReceber from "./pages/relatorios/financeiro/RelContasReceber";
 import RelBaixasContasReceber from "./pages/relatorios/financeiro/RelBaixasContasReceber";
 import RelContasPagar from "./pages/relatorios/financeiro/RelContasPagar";
 import RelBaixasContasPagar from "./pages/relatorios/financeiro/RelBaixasContasPagar";
+import RelContaCorrenteProprietario from "./pages/relatorios/financeiro/RelContaCorrenteProprietario";
 import ContasBancarias from "./pages/financeiro/ContasBancarias";
 import MovimentacaoBancaria from "./pages/financeiro/MovimentacaoBancaria";
 import ContasReceber from "./pages/financeiro/ContasReceber";
@@ -68,6 +69,7 @@ const App = () => (
             <Route path="/relatorios/financeiro/baixas-receber" element={<ProtectedRoute><RelBaixasContasReceber /></ProtectedRoute>} />
             <Route path="/relatorios/financeiro/contas-pagar" element={<ProtectedRoute><RelContasPagar /></ProtectedRoute>} />
             <Route path="/relatorios/financeiro/baixas-pagar" element={<ProtectedRoute><RelBaixasContasPagar /></ProtectedRoute>} />
+            <Route path="/relatorios/financeiro/conta-corrente-prop" element={<ProtectedRoute><RelContaCorrenteProprietario /></ProtectedRoute>} />
             <Route path="/financeiro/contas-bancarias" element={<ProtectedRoute><ContasBancarias /></ProtectedRoute>} />
             <Route path="/financeiro/movimentacao-bancaria" element={<ProtectedRoute><MovimentacaoBancaria /></ProtectedRoute>} />
             <Route path="/financeiro/contas-receber" element={<ProtectedRoute><ContasReceber /></ProtectedRoute>} />

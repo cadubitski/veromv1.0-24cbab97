@@ -771,6 +771,7 @@ export type Database = {
           id: string
           ir_deduction: number | null
           ir_rate: number | null
+          ir_table_effective_date: string | null
           irrf_value: number | null
           management_fee_percent: number
           management_fee_value: number | null
@@ -794,6 +795,7 @@ export type Database = {
           id?: string
           ir_deduction?: number | null
           ir_rate?: number | null
+          ir_table_effective_date?: string | null
           irrf_value?: number | null
           management_fee_percent?: number
           management_fee_value?: number | null
@@ -817,6 +819,7 @@ export type Database = {
           id?: string
           ir_deduction?: number | null
           ir_rate?: number | null
+          ir_table_effective_date?: string | null
           irrf_value?: number | null
           management_fee_percent?: number
           management_fee_value?: number | null
@@ -972,7 +975,20 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      vw_owner_statement: {
+        Row: {
+          company_id: string | null
+          contract_id: string | null
+          description: string | null
+          entrada: number | null
+          event_date: string | null
+          event_type: string | null
+          installment_id: string | null
+          owner_id: string | null
+          saida: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_public_tables: {
