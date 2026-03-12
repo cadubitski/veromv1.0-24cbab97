@@ -939,10 +939,10 @@ export default function ContasReceber() {
 
       {/* ── View Dialog ────────────────────────────────────────────────────────── */}
       <Dialog open={!!viewItem} onOpenChange={(o) => !o && setViewItem(null)}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg flex flex-col max-h-[90vh]">
           <DialogHeader><DialogTitle>Detalhes do título</DialogTitle></DialogHeader>
           {viewItem && (
-            <div className="space-y-4 py-2">
+            <div className="space-y-4 py-2 overflow-y-auto flex-1 pr-1">
               <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                 <div className="col-span-2"><p className="text-xs text-muted-foreground">Número do Documento</p><p className="font-mono font-semibold">{viewItem.document_number}</p></div>
                 <div><p className="text-xs text-muted-foreground">Locatário</p><p className="font-medium">{viewItem.tenant_name ?? "—"}</p></div>
@@ -972,7 +972,7 @@ export default function ContasReceber() {
               )}
             </div>
           )}
-          <DialogFooter><Button variant="outline" onClick={() => setViewItem(null)}>Fechar</Button></DialogFooter>
+          <DialogFooter className="pt-2 border-t border-border mt-2"><Button variant="outline" onClick={() => setViewItem(null)}>Fechar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
