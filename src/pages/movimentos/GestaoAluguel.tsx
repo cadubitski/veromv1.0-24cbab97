@@ -427,7 +427,7 @@ export default function GestaoContratos() {
   const openCreate = async () => {
     await loadDropdowns();
     setEditContract(null);
-    setForm({ code: "", tenant_id: "", property_id: "", rent_value: "", start_date: "", due_day: "10", duration_months: "12", management_fee_percent: "0" });
+    setForm({ code: "", tenant_id: "", property_id: "", rent_value: "", start_date: "", due_day: "10", duration_months: "12", management_fee_percent: "0", repasse_days_after_receipt: "5" });
     setFormError(null);
     setDialogOpen(true);
   };
@@ -444,6 +444,7 @@ export default function GestaoContratos() {
       due_day: String(c.due_day),
       duration_months: String(c.duration_months),
       management_fee_percent: String(c.management_fee_percent ?? 0),
+      repasse_days_after_receipt: String(c.repasse_days_after_receipt ?? 5),
     });
     setFormError(null);
     setDialogOpen(true);
