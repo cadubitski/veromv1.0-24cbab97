@@ -566,14 +566,14 @@ export default function ContasPagar() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-px whitespace-nowrap">Status</TableHead>
-                    {visibleCols.has("document_number") && <TableHead>Nº Documento</TableHead>}
-                    {visibleCols.has("vendor_name")     && <TableHead>Fornecedor</TableHead>}
-                    {visibleCols.has("description")     && <TableHead>Descrição</TableHead>}
-                    {visibleCols.has("issue_date")      && <TableHead>Emissão</TableHead>}
-                    {visibleCols.has("due_date")        && <TableHead>Vencimento</TableHead>}
-                    {visibleCols.has("amount")          && <TableHead>Valor</TableHead>}
+                    {visibleCols.has("document_number") && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("document_number")}>Nº Documento <SortIcon col="document_number" /></TableHead>}
+                    {visibleCols.has("vendor_name")     && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("vendor_name")}>Fornecedor <SortIcon col="vendor_name" /></TableHead>}
+                    {visibleCols.has("description")     && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("description")}>Descrição <SortIcon col="description" /></TableHead>}
+                    {visibleCols.has("issue_date")      && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("issue_date")}>Emissão <SortIcon col="issue_date" /></TableHead>}
+                    {visibleCols.has("due_date")        && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("due_date")}>Vencimento <SortIcon col="due_date" /></TableHead>}
+                    {visibleCols.has("amount")          && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("amount")}>Valor <SortIcon col="amount" /></TableHead>}
                     {visibleCols.has("source_type")     && <TableHead>Origem</TableHead>}
-                    {visibleCols.has("paid_at")         && <TableHead>Pago em</TableHead>}
+                    {visibleCols.has("paid_at")         && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("paid_at")}>Pago em <SortIcon col="paid_at" /></TableHead>}
                     <TableHead className="w-px whitespace-nowrap">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
