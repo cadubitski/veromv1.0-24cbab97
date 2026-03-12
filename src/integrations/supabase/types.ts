@@ -296,6 +296,7 @@ export type Database = {
           id: string
           origin_id: string | null
           origin_type: string
+          payment_method: string | null
           transaction_date: string
           type: string
           updated_at: string
@@ -310,6 +311,7 @@ export type Database = {
           id?: string
           origin_id?: string | null
           origin_type?: string
+          payment_method?: string | null
           transaction_date: string
           type: string
           updated_at?: string
@@ -324,6 +326,7 @@ export type Database = {
           id?: string
           origin_id?: string | null
           origin_type?: string
+          payment_method?: string | null
           transaction_date?: string
           type?: string
           updated_at?: string
