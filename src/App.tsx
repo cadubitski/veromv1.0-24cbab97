@@ -26,6 +26,7 @@ import RelContasReceber from "./pages/relatorios/financeiro/RelContasReceber";
 import RelBaixasContasReceber from "./pages/relatorios/financeiro/RelBaixasContasReceber";
 import RelContasPagar from "./pages/relatorios/financeiro/RelContasPagar";
 import RelBaixasContasPagar from "./pages/relatorios/financeiro/RelBaixasContasPagar";
+import RelContaCorrenteProprietario from "./pages/relatorios/financeiro/RelContaCorrenteProprietario";
 import ContasBancarias from "./pages/financeiro/ContasBancarias";
 import MovimentacaoBancaria from "./pages/financeiro/MovimentacaoBancaria";
 import ContasReceber from "./pages/financeiro/ContasReceber";
