@@ -609,7 +609,6 @@ export default function GestaoContratos() {
     try {
       let contractId: string;
       if (editContract) {
-        const oldDueDay = editContract.due_day;
         const feeValEdit = rentVal * feeP / 100;
         const repasseValEdit = rentVal - feeValEdit;
         const repDaysEdit = parseInt(form.repasse_days_after_receipt) || 5;
