@@ -1,8 +1,8 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Loader2, Plus, Search, Eye, Pencil, Trash2,
   ArrowDownCircle, RotateCcw, Filter, Receipt,
-  TrendingDown, Clock, Ban, FileDown
+  TrendingDown, Clock, Ban, FileDown, ChevronUp, ChevronDown
 } from "lucide-react";
 import { StatusDot, ActionGear } from "@/components/TableActions";
 import ColumnSelector, { ColumnDef } from "@/components/ColumnSelector";
@@ -121,6 +121,24 @@ export default function ContasPagar() {
   const [visibleCols, setVisibleCols] = useState<Set<string>>(
     new Set(ALL_COLUMNS.filter((c) => c.defaultVisible !== false).map((c) => c.key))
   );
+
+  // Sort
+  type SortKey = "document_number" | "vendor_name" | "description" | "issue_date" | "due_date" | "amount" | "paid_at";
+  type SortDir = "asc" | "desc";
+  const [sortKey, setSortKey] = useState<SortKey>("due_date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ChevronUp className="h-3 w-3 opacity-20 inline ml-1" />;
+    return sortDir === "asc"
+      ? <ChevronUp className="h-3 w-3 opacity-80 inline ml-1" />
+      : <ChevronDown className="h-3 w-3 opacity-80 inline ml-1" />;
+  };
 
   // Vendors & bank accounts
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -416,15 +434,31 @@ export default function ContasPagar() {
   const totalCancelled = items.filter((i) => i.status === "cancelled").reduce((s, i) => s + i.amount, 0);
   const totalAll       = items.reduce((s, i) => s + i.amount, 0);
 
-  // ── Filtered ───────────────────────────────────────────────────────────────
-  const filtered = items.filter((i) => {
-    const matchSearch =
-      i.description.toLowerCase().includes(search.toLowerCase()) ||
-      i.document_number.toLowerCase().includes(search.toLowerCase()) ||
-      (i.vendor_name ?? "").toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filterStatus === "all" || i.status === filterStatus;
-    return matchSearch && matchStatus;
-  });
+  // ── Filtered + Sorted ──────────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    const base = items.filter((i) => {
+      const matchSearch =
+        i.description.toLowerCase().includes(search.toLowerCase()) ||
+        i.document_number.toLowerCase().includes(search.toLowerCase()) ||
+        (i.vendor_name ?? "").toLowerCase().includes(search.toLowerCase());
+      const matchStatus = filterStatus === "all" || i.status === filterStatus;
+      return matchSearch && matchStatus;
+    });
+    return [...base].sort((a, b) => {
+      const va = sortKey === "amount"
+        ? a.amount
+        : ((a[sortKey as keyof typeof a] ?? "") as string);
+      const vb = sortKey === "amount"
+        ? b.amount
+        : ((b[sortKey as keyof typeof b] ?? "") as string);
+      if (typeof va === "number" && typeof vb === "number") {
+        return sortDir === "asc" ? va - vb : vb - va;
+      }
+      return sortDir === "asc"
+        ? String(va).localeCompare(String(vb))
+        : String(vb).localeCompare(String(va));
+    });
+  }, [items, search, filterStatus, sortKey, sortDir]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   const canEdit = (item: Payable) => item.source_type === "manual" && item.status === "pending";
@@ -532,14 +566,14 @@ export default function ContasPagar() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-px whitespace-nowrap">Status</TableHead>
-                    {visibleCols.has("document_number") && <TableHead>Nº Documento</TableHead>}
-                    {visibleCols.has("vendor_name")     && <TableHead>Fornecedor</TableHead>}
-                    {visibleCols.has("description")     && <TableHead>Descrição</TableHead>}
-                    {visibleCols.has("issue_date")      && <TableHead>Emissão</TableHead>}
-                    {visibleCols.has("due_date")        && <TableHead>Vencimento</TableHead>}
-                    {visibleCols.has("amount")          && <TableHead>Valor</TableHead>}
+                    {visibleCols.has("document_number") && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("document_number")}>Nº Documento <SortIcon col="document_number" /></TableHead>}
+                    {visibleCols.has("vendor_name")     && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("vendor_name")}>Fornecedor <SortIcon col="vendor_name" /></TableHead>}
+                    {visibleCols.has("description")     && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("description")}>Descrição <SortIcon col="description" /></TableHead>}
+                    {visibleCols.has("issue_date")      && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("issue_date")}>Emissão <SortIcon col="issue_date" /></TableHead>}
+                    {visibleCols.has("due_date")        && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("due_date")}>Vencimento <SortIcon col="due_date" /></TableHead>}
+                    {visibleCols.has("amount")          && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("amount")}>Valor <SortIcon col="amount" /></TableHead>}
                     {visibleCols.has("source_type")     && <TableHead>Origem</TableHead>}
-                    {visibleCols.has("paid_at")         && <TableHead>Pago em</TableHead>}
+                    {visibleCols.has("paid_at")         && <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("paid_at")}>Pago em <SortIcon col="paid_at" /></TableHead>}
                     <TableHead className="w-px whitespace-nowrap">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
