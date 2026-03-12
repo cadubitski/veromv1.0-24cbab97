@@ -254,7 +254,7 @@ function formatMoney(v: number) {
 }
 
 export default function GestaoContratos() {
-  const { company } = useAuth();
+  const { company, role } = useAuth();
   const [searchParams] = useSearchParams();
 
   const [contracts, setContracts] = useState<Contract[]>([]);
