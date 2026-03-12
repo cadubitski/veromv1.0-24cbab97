@@ -41,37 +41,58 @@ export default function Dimob() {
   const printRef = useRef<HTMLDivElement>(null);
 
   const load = async () => {
+    if (!company?.id) return;
     setLoading(true);
     setSearched(false);
 
-    // Regime de caixa: buscar parcelas cujo contas_receber foi pago no ano selecionado
-    const { data } = await supabase
+    // Regime de caixa: filtrar contas_receber com paid_at no intervalo do ano selecionado
+    const yearNum = Number(year);
+    const dateFrom = `${yearNum}-01-01`;
+    const dateTo = `${yearNum + 1}-01-01`;
+
+    // Buscar contas a receber pagas no ano (regime de caixa)
+    const { data: arData } = await supabase
+      .from("accounts_receivable")
+      .select("id, paid_at, installment_id")
+      .eq("company_id", company.id)
+      .eq("status", "paid")
+      .gte("paid_at", dateFrom)
+      .lt("paid_at", dateTo)
+      .not("installment_id", "is", null);
+
+    if (!arData || arData.length === 0) {
+      setRows([]);
+      setLoading(false);
+      setSearched(true);
+      return;
+    }
+
+    const installmentIds = arData.map((ar) => ar.id);
+    // Map accounts_receivable.id -> paid_at
+    const arMap = new Map(arData.map((ar) => [ar.id, ar.paid_at]));
+
+    // Buscar parcelas vinculadas a esses contas_receber
+    const { data: instData } = await supabase
       .from("rental_installments")
       .select(`
         id, competence, value,
         management_fee_value, irrf_value, owner_net_value, repasse_value,
         accounts_receivable_id,
-        accounts_receivable:accounts_receivable_id(id, paid_at, status),
         rental_contracts(
-          id, property_id,
-          properties(code, clients(id, full_name, document, person_type))
+          id,
+          properties(client_id, clients(id, full_name, document, person_type))
         )
-      `);
+      `)
+      .eq("company_id", company.id)
+      .in("accounts_receivable_id", installmentIds);
 
-    const yearStr = year;
-    const filtered = ((data ?? []) as any[]).filter((r) => {
-      // Regime de caixa: considerar apenas títulos efetivamente recebidos (paid_at no ano selecionado)
-      const ar = r.accounts_receivable;
-      if (!ar || ar.status !== "paid") return false;
-      const paidYear = ar.paid_at ? String(new Date(ar.paid_at).getFullYear()) : null;
-      return paidYear === yearStr;
-    });
+    const data = (instData ?? []) as any[];
 
     // Group by owner
     const map = new Map<string, DimobRow>();
     const contractsByOwner = new Map<string, Set<string>>();
 
-    for (const r of filtered) {
+    for (const r of data) {
       const client = r.rental_contracts?.properties?.clients;
       if (!client) continue;
       const ownerId = client.id as string;
@@ -93,19 +114,14 @@ export default function Dimob() {
       }
 
       const row = map.get(ownerId)!;
-      const feeV = r.management_fee_value ?? 0;
-      const irrfV = r.irrf_value ?? 0;
-      const repV = r.owner_net_value ?? r.repasse_value ?? 0;
-
-      row.total_value += r.value ?? 0;
-      row.total_fee += feeV;
-      row.total_irrf += irrfV;
-      row.total_repasse += repV;
+      row.total_value += Number(r.value ?? 0);
+      row.total_fee += Number(r.management_fee_value ?? 0);
+      row.total_irrf += Number(r.irrf_value ?? 0);
+      row.total_repasse += Number(r.owner_net_value ?? r.repasse_value ?? 0);
 
       if (contractId) contractsByOwner.get(ownerId)!.add(contractId);
     }
 
-    // Set contract counts
     for (const [ownerId, row] of map.entries()) {
       row.contracts_count = contractsByOwner.get(ownerId)?.size ?? 0;
     }
@@ -172,7 +188,8 @@ export default function Dimob() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">DIMOB Anual</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Demonstrativo de aluguel recebido por proprietário — base para declaração DIMOB à Receita Federal. <span className="font-medium text-primary">Regime de caixa</span>: considera a data efetiva de recebimento (baixa do título).
+              Demonstrativo de aluguel recebido por proprietário — base para declaração DIMOB à Receita Federal.{" "}
+              <span className="font-medium text-primary">Regime de caixa</span>: considera a data efetiva de recebimento (baixa do título).
             </p>
           </div>
           {searched && rows.length > 0 && (
@@ -250,7 +267,7 @@ export default function Dimob() {
                 ) : filtered.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-12 text-muted-foreground text-sm">
-                      Nenhum dado encontrado para o ano {year}. Verifique se há parcelas pagas registradas.
+                      Nenhum dado encontrado para o ano {year}. Verifique se há parcelas com baixa registrada no período.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -276,7 +293,6 @@ export default function Dimob() {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {/* Linha de totais */}
                     <TableRow className="border-t-2 border-border/60 bg-muted/20 font-semibold">
                       <TableCell colSpan={3} className="font-bold">TOTAL — {filtered.length} proprietário(s)</TableCell>
                       <TableCell className="text-right font-mono">

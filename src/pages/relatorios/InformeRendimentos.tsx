@@ -10,7 +10,6 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Loader2, Printer, Download, Search, FileText } from "lucide-react";
-import { format, parseISO } from "date-fns";
 import * as XLSX from "xlsx";
 
 interface OwnerOption {
@@ -22,7 +21,8 @@ interface OwnerOption {
 
 interface InformeRow {
   id: string;
-  competence: string;
+  competence: string;         // derivado de paid_at (MM/AAAA)
+  paid_at: string;
   property_code: string;
   property_address: string;
   contract_code: string;
@@ -31,11 +31,17 @@ interface InformeRow {
   tax_base_value: number;
   irrf_value: number;
   owner_net_value: number;
-  due_date: string;
 }
 
 function fm(v: number) {
   return v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function paidAtToCompetence(paidAt: string | null): string {
+  if (!paidAt) return "—";
+  // paidAt is a date string like "2026-03-15"
+  const [y, m] = paidAt.split("-");
+  return `${m}/${y}`;
 }
 
 const YEARS = Array.from({ length: 10 }, (_, i) => String(new Date().getFullYear() - i));
@@ -53,10 +59,12 @@ export default function InformeRendimentos() {
 
   // Load owners (clients)
   useEffect(() => {
+    if (!company?.id) return;
     const loadOwners = async () => {
       const { data } = await supabase
         .from("clients")
         .select("id, full_name, document, person_type")
+        .eq("company_id", company.id)
         .eq("status", "ativo")
         .order("full_name");
       setOwners((data ?? []) as OwnerOption[]);
@@ -68,55 +76,77 @@ export default function InformeRendimentos() {
   const selectedOwner = useMemo(() => owners.find((o) => o.id === ownerId), [owners, ownerId]);
 
   const load = async () => {
-    if (!ownerId) return;
+    if (!ownerId || !company?.id) return;
     setLoading(true);
     setSearched(false);
 
-    // Regime de caixa: buscar parcelas com contas_receber pago no ano selecionado
-    const { data } = await supabase
+    // Regime de caixa: filtrar contas_receber com paid_at no intervalo do ano selecionado
+    const yearNum = Number(year);
+    const dateFrom = `${yearNum}-01-01`;
+    const dateTo = `${yearNum + 1}-01-01`;
+
+    // 1. Buscar contas a receber pagas no ano para a empresa
+    const { data: arData } = await supabase
+      .from("accounts_receivable")
+      .select("id, paid_at, installment_id")
+      .eq("company_id", company.id)
+      .eq("status", "paid")
+      .gte("paid_at", dateFrom)
+      .lt("paid_at", dateTo)
+      .not("installment_id", "is", null);
+
+    if (!arData || arData.length === 0) {
+      setRows([]);
+      setLoading(false);
+      setSearched(true);
+      return;
+    }
+
+    // Map: accounts_receivable.id -> paid_at
+    const arPaidAtMap = new Map(arData.map((ar) => [ar.id, ar.paid_at as string]));
+    const arIds = arData.map((ar) => ar.id);
+
+    // 2. Buscar parcelas vinculadas a esses contas_receber, filtrando pelo proprietário do imóvel
+    const { data: instData } = await supabase
       .from("rental_installments")
       .select(`
-        id, competence, due_date, value,
+        id, competence, value,
         management_fee_value, tax_base_value, irrf_value, owner_net_value, repasse_value,
         accounts_receivable_id,
-        accounts_receivable:accounts_receivable_id(id, paid_at, status),
         rental_contracts(
-          code, property_id,
+          code,
           properties(code, address, client_id)
         )
-      `);
+      `)
+      .eq("company_id", company.id)
+      .in("accounts_receivable_id", arIds);
 
-    const yearStr = year;
+    // Filtrar pelo proprietário selecionado (client_id do imóvel)
+    const filtered = ((instData ?? []) as any[]).filter(
+      (r) => r.rental_contracts?.properties?.client_id === ownerId
+    );
 
-    const filtered = ((data ?? []) as any[]).filter((r) => {
-      // Regime de caixa: considerar apenas títulos efetivamente recebidos (paid_at no ano selecionado)
-      const ar = r.accounts_receivable;
-      if (!ar || ar.status !== "paid") return false;
-      const paidYear = ar.paid_at ? String(new Date(ar.paid_at).getFullYear()) : null;
-      if (paidYear !== yearStr) return false;
-      // Filtrar pelo proprietário (client_id no imóvel)
-      const clientId = r.rental_contracts?.properties?.client_id;
-      return clientId === ownerId;
+    const mapped: InformeRow[] = filtered.map((r) => {
+      const paidAt = arPaidAtMap.get(r.accounts_receivable_id) ?? null;
+      return {
+        id: r.id,
+        competence: paidAtToCompetence(paidAt),
+        paid_at: paidAt ?? "",
+        property_code: r.rental_contracts?.properties?.code ?? "—",
+        property_address: r.rental_contracts?.properties?.address ?? "—",
+        contract_code: r.rental_contracts?.code ?? "—",
+        value: Number(r.value ?? 0),
+        management_fee_value: Number(r.management_fee_value ?? 0),
+        tax_base_value: Number(r.tax_base_value ?? 0),
+        irrf_value: Number(r.irrf_value ?? 0),
+        owner_net_value: Number(r.owner_net_value ?? r.repasse_value ?? 0),
+      };
     });
 
-    const mapped: InformeRow[] = filtered.map((r) => ({
-      id: r.id,
-      competence: r.competence,
-      property_code: r.rental_contracts?.properties?.code ?? "—",
-      property_address: r.rental_contracts?.properties?.address ?? "—",
-      contract_code: r.rental_contracts?.code ?? "—",
-      value: r.value ?? 0,
-      management_fee_value: r.management_fee_value ?? 0,
-      tax_base_value: r.tax_base_value ?? 0,
-      irrf_value: r.irrf_value ?? 0,
-      owner_net_value: r.owner_net_value ?? r.repasse_value ?? 0,
-      due_date: r.due_date,
-    }));
-
-    // Sort by property then competence
+    // Ordenar por código do imóvel e depois por paid_at
     mapped.sort((a, b) => {
       if (a.property_code !== b.property_code) return a.property_code.localeCompare(b.property_code);
-      return a.competence.localeCompare(b.competence);
+      return a.paid_at.localeCompare(b.paid_at);
     });
 
     setRows(mapped);
@@ -136,7 +166,7 @@ export default function InformeRendimentos() {
   const handleExcel = () => {
     if (!selectedOwner) return;
     const exportData = rows.map((r) => ({
-      "Competência": r.competence,
+      "Competência (Recebimento)": r.competence,
       "Imóvel": r.property_code,
       "Endereço": r.property_address,
       "Contrato": r.contract_code,
@@ -147,7 +177,7 @@ export default function InformeRendimentos() {
       "Valor Líquido Repassado (R$)": r.owner_net_value,
     }));
     exportData.push({
-      "Competência": "TOTAL",
+      "Competência (Recebimento)": "TOTAL",
       "Imóvel": "",
       "Endereço": "",
       "Contrato": "",
@@ -170,7 +200,8 @@ export default function InformeRendimentos() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Informe de Rendimentos do Proprietário</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Demonstrativo anual de rendimentos de locação para entrega ao proprietário (declaração de IR). <span className="font-medium text-primary">Regime de caixa</span>: considera a data efetiva de recebimento (baixa do título).
+              Demonstrativo anual de rendimentos de locação para entrega ao proprietário (declaração de IR).{" "}
+              <span className="font-medium text-primary">Regime de caixa</span>: considera a data efetiva de recebimento (baixa do título).
             </p>
           </div>
           {searched && rows.length > 0 && (
@@ -217,7 +248,7 @@ export default function InformeRendimentos() {
           </Button>
         </div>
 
-        {/* Cabeçalho do informe — visível na tela e na impressão */}
+        {/* Cabeçalho do informe */}
         {searched && selectedOwner && (
           <div className="card-premium rounded-xl p-5 border border-border/40 space-y-1">
             <div className="flex items-center gap-2 mb-3">
@@ -271,7 +302,7 @@ export default function InformeRendimentos() {
                 ) : rows.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-12 text-muted-foreground text-sm">
-                      Nenhuma parcela paga encontrada para {selectedOwner?.full_name} em {year}.
+                      Nenhuma parcela com baixa registrada para {selectedOwner?.full_name} em {year}.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -302,7 +333,6 @@ export default function InformeRendimentos() {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {/* Linha de totais */}
                     <TableRow className="border-t-2 border-border/60 bg-muted/20 font-semibold">
                       <TableCell colSpan={4} className="font-bold">TOTAL — {rows.length} parcela(s)</TableCell>
                       <TableCell className="text-right font-mono">R$ {fm(totals.value)}</TableCell>
