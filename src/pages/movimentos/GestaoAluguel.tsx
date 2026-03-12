@@ -595,6 +595,7 @@ export default function GestaoContratos() {
         const oldDueDay = editContract.due_day;
         const feeValEdit = rentVal * feeP / 100;
         const repasseValEdit = rentVal - feeValEdit;
+        const repDaysEdit = parseInt(form.repasse_days_after_receipt) || 5;
         const { error: err } = await supabase.from("rental_contracts").update({
           code: form.code.trim() || null,
           tenant_id: form.tenant_id, property_id: form.property_id,
@@ -603,6 +604,7 @@ export default function GestaoContratos() {
           management_fee_percent: feeP,
           management_fee_value: feeValEdit,
           repasse_value: repasseValEdit,
+          repasse_days_after_receipt: repDaysEdit,
           updated_at: new Date().toISOString(),
         }).eq("id", editContract.id);
         if (err) throw err;
