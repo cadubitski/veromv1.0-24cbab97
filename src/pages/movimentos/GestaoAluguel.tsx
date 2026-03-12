@@ -1264,6 +1264,10 @@ export default function GestaoContratos() {
               <FieldLabel label="Período (meses)" tooltip="Duração total do contrato em meses." required />
               <Input type="number" min={1} value={form.duration_months} onChange={(e) => setForm((p) => ({ ...p, duration_months: e.target.value }))} placeholder="12" />
             </div>
+            <div className="space-y-2">
+              <FieldLabel label="Prazo para repasse (dias)" tooltip="Número de dias após o recebimento do aluguel para realizar o repasse ao proprietário. Ex: 5 = repasse vence 5 dias após o recebimento." />
+              <Input type="number" min={0} max={90} value={form.repasse_days_after_receipt} onChange={(e) => setForm((p) => ({ ...p, repasse_days_after_receipt: e.target.value }))} placeholder="5" />
+            </div>
             {formError && <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{formError}</div>}
           </div>
           <DialogFooter className="shrink-0">
