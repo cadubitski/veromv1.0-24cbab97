@@ -375,7 +375,7 @@ export default function ContasPagar() {
       observation: baixaForm.observation || undefined,
     };
     const toSettle: PayableItem[] = selectedItems.map((i) => ({
-      id: i.id, document_number: i.document_number, description: i.description, amount: i.amount, status: i.status,
+      id: i.id, document_number: i.document_number, description: i.description, amount: i.amount, status: i.status, installment_id: i.installment_id,
     }));
     const result = await batchSettlePayables(toSettle, params);
     setSavingBaixa(false);
