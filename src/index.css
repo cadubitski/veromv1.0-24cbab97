@@ -142,6 +142,18 @@
   .shadow-glow { box-shadow: var(--shadow-glow); }
   .text-balance { text-wrap: balance; }
 
+  a[href*="lovable.dev"],
+  iframe[src*="lovable.dev"],
+  div[style*="Edit with Lovable"],
+  .lovable-badge {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    z-index: -9999 !important;
+  }
+
   .card-premium {
     box-shadow: var(--shadow-card);
     transition: box-shadow 0.2s ease, border-color 0.2s ease;
